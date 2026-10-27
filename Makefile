@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev migrate revision generate dataset test test-unit lint format typecheck check
+.PHONY: help install up down logs dev worker migrate revision generate dataset seed test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -16,11 +16,14 @@ up: ## Start the full stack (runs migrations first)
 down: ## Stop the stack
 	docker compose down
 
-logs: ## Tail API logs
-	docker compose logs -f api
+logs: ## Tail API and worker logs
+	docker compose logs -f api worker
 
 dev: ## Run the API locally with hot reload (needs postgres + redis: `docker compose up -d postgres redis`)
 	$(UV) uvicorn app.main:create_app --factory --reload
+
+worker: ## Run the ingestion worker locally
+	$(UV) arq app.workers.settings.WorkerSettings
 
 migrate: ## Apply migrations to DATABASE_URL
 	$(UV) alembic upgrade head
@@ -40,6 +43,10 @@ generate: ## Generate a synthetic dataset: make generate INDUSTRY=banking N=1000
 
 dataset: ## Regenerate the committed dataset (run after changing scenarios.yaml or the generator)
 	$(UV) python -m synthetic.generator --industry telecom --n 500 --seed 42 --out $(DATASET_DIR)
+
+seed: ## Generate a dataset and ingest it into the running API: make seed INDUSTRY=telecom N=500
+	$(MAKE) generate INDUSTRY=$(INDUSTRY) N=$(N) SEED=$(SEED) RENDERER=$(RENDERER)
+	$(UV) python -m scripts.ingest data/$(INDUSTRY)-seed$(SEED)-n$(N)
 
 test: ## Run all tests (integration tests use Testcontainers)
 	$(UV) pytest

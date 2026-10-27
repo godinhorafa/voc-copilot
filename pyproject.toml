@@ -49,7 +49,7 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PT", "N"]
 ignore = ["S101"]  # asserts are fine; tests and type narrowing rely on them
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "synthetic", "tests"]
+known-first-party = ["app", "scripts", "synthetic", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]
@@ -60,7 +60,7 @@ known-first-party = ["app", "synthetic", "tests"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["app", "synthetic", "tests"]
+files = ["app", "scripts", "synthetic", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["testcontainers.*", "pgvector.*"]
