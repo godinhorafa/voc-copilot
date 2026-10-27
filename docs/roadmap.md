@@ -14,14 +14,17 @@ Each phase is a vertical slice that ends with something runnable and, from phase
 
 **Exit:** `make up` gives a healthy stack and `make check` passes from a clean clone.
 
-## Phase 1 – Synthetic data generator
+## Phase 1 – Synthetic data generator ✅
 
-- `scenarios.yaml`: contact reasons, outcomes, and distributions per industry
-- Customers with a timeline (signup, plan, churn) and **injected events** (e.g. a price change on Sep 1 that raises billing contacts and churn)
-- Labels are sampled first and the LLM writes the conversation to match, so every record carries ground truth
-- Fixed seed; a ~200-conversation fixture committed for tests and evals
+- `scenarios.yaml`: telecom, banking, and e-commerce, with contact reasons, outcomes, sentiment, competitor mention rates, and fictional brands
+- Customers with a timeline (signup, plan, churn) and **injected events**: telecom price increase (Sep) and network outage (Oct 14–16); banking app outage (Aug) and fee increase (Oct); e-commerce carrier backlog (late Nov)
+- Labels are sampled first, then rendered to text: phrase-bank templates (deterministic) or an LLM with label/text consistency checks and retry-with-feedback
+- Labels live in `ground_truth.jsonl`, separate from the ingestion payload
+- `telecom-seed42-n500` committed, with a test that fails when it drifts from the config
 
-**Exit:** `make seed` is reproducible and each conversation includes its ground-truth labels.
+**Exit:** `make generate` is reproducible and each conversation has ground-truth labels. Tests assert the event effects hold across seeds (e.g. September billing contacts > 1.6x the Jun–Aug average).
+
+**Follow-up (after phase 2 wires a real provider):** generate an LLM-rendered dataset for retrieval evals; template text is too formulaic to measure retrieval honestly.
 
 ## Phase 2 – Ingestion
 
@@ -31,6 +34,8 @@ Each phase is a vertical slice that ends with something runnable and, from phase
 - Turn-aware chunking; embeddings; structured extraction validated by Pydantic, with `extractor_version` stored
 - Real providers: OpenAI, Azure OpenAI, Ollama
 - API key auth on `/v1/*`
+
+- `make seed`: generate + ingest
 
 **Exit:** 500 conversations ingested; extraction F1 per field reported against ground truth.
 
