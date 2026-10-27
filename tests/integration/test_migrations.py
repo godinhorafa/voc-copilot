@@ -25,3 +25,8 @@ async def test_migrations_round_trip(migrated_db: str) -> None:
     cfg = alembic_config(migrated_db)
     await asyncio.to_thread(command.downgrade, cfg, "base")
     await asyncio.to_thread(command.upgrade, cfg, "head")
+
+
+async def test_models_match_migrations(migrated_db: str) -> None:
+    """Fails when a model changed without a matching Alembic migration."""
+    await asyncio.to_thread(command.check, alembic_config(migrated_db))
