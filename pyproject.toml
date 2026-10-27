@@ -32,8 +32,10 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.1",
+    "pyyaml>=6.0.3",
     "ruff>=0.17.2",
     "testcontainers[postgres,redis]>=4.15.0",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.ruff]
@@ -45,17 +47,18 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PT", "N"]
 ignore = ["S101"]  # asserts are fine; tests and type narrowing rely on them
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "tests"]
+known-first-party = ["app", "synthetic", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]
 "migrations/**" = ["N999"]
+"synthetic/**" = ["S311"]  # seeded, non-cryptographic randomness is the point
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["app", "tests"]
+files = ["app", "synthetic", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["testcontainers.*", "pgvector.*"]

@@ -1,0 +1,541 @@
+# Scenario configuration for the synthetic data generator.
+#
+# Everything here is fictional: brands, competitors, plans, prices, and events.
+#
+# How it is used:
+#   1. The simulator samples *labels* from these distributions (who contacts,
+#      when, why, how it ends, which competitors come up, which event is behind
+#      it). Labels become the ground truth for evals.
+#   2. A renderer writes the conversation text to match those labels, either
+#      from the phrase banks below (`template`, offline, deterministic) or with
+#      an LLM (`llm`, see prompts/conversation.md).
+#
+# Semantics worth knowing:
+#   - `weight`s are relative, they do not need to sum to 1.
+#   - `sentiment` is [P(negative), P(neutral), P(positive)] before the outcome
+#     shifts it (resolved conversations skew positive, unresolved negative).
+#   - For the cancellation reason, `resolved: true` means the customer was
+#     retained; `false` means the cancellation went through (churn).
+#   - Events multiply volume and reason weights while active, raise churn on
+#     cancellation contacts, and a share (`mention_rate`) of the affected
+#     conversations mention the event explicitly.
+#   - Template slots: {plan} {plan_code} {price} {new_price} {competitor}
+#     {product} {error_code} {amount}
+
+common:
+  agent_greetings:
+    - "Hi, thanks for contacting {brand}. My name is {agent}. How can I help you today?"
+    - "Hello, you're through to {brand} support, this is {agent}. What can I do for you?"
+    - "Good day, {agent} from {brand} here. How can I help?"
+  agent_closings:
+    - "Is there anything else I can help you with today?"
+    - "Thanks for your patience. Anything else before we wrap up?"
+  customer_closings:
+    negative:
+      - "No. Honestly, this has been a frustrating experience."
+      - "That's it. I'm not happy with how this was handled."
+      - "No, but I expected a lot better from you."
+    neutral:
+      - "No, that's all. Thanks."
+      - "That's everything for now."
+      - "No, I think that covers it."
+    positive:
+      - "No, that's all. Thank you, you've been really helpful!"
+      - "Nope, that sorted it. Great service, thanks."
+      - "That's everything, thanks a lot for the quick help."
+  competitor_lines:
+    - "To be honest, {competitor} is offering me a better deal right now."
+    - "A friend switched to {competitor} and pays less for the same thing."
+    - "I've already got a quote from {competitor}."
+    - "If this isn't fixed I'm moving to {competitor}, they've been calling me."
+  voice_fillers: ["Uh, ", "Um, ", "Yeah, so ", "Okay, ", "Right, "]
+
+industries:
+  # ======================================================================== TELECOM
+  telecom:
+    brand: Lumen Mobile
+    products: ["5G router", "eSIM", "home fiber", "mobile line", "TV add-on"]
+    competitors: ["NovaTel", "SkyLink Mobile", "Orbit Wireless"]
+    error_codes: ["ERR-DNS-101", "ERR-SIM-220", "ERR-LOS-310"]
+    plans:
+      - { code: LM-BASIC-10, name: "Basic 10GB", monthly_price: 29.90, weight: 4 }
+      - { code: LM-PLUS-50, name: "Plus 50GB", monthly_price: 49.90, weight: 3 }
+      - { code: LM-MAX-UNL, name: "Max Unlimited", monthly_price: 79.90, weight: 2 }
+      - { code: LM-FIBER-500, name: "Fiber 500", monthly_price: 99.90, weight: 1 }
+    channels: { chat: 0.6, voice: 0.4 }
+    cancellation_reason: cancellation
+    retention_rate: 0.45
+
+    reasons:
+      - id: billing_dispute
+        description: Unexpected or incorrect charges on the bill
+        weight: 22
+        resolution_rate: 0.55
+        sentiment: [0.65, 0.30, 0.05]
+        competitor_mention_rate: 0.12
+        templates:
+          openers:
+            - "Hi, I have a problem with my last bill."
+            - "I was charged more than usual this month and I don't understand why."
+            - "There's a charge on my invoice I don't recognize."
+          details:
+            - "I'm on the {plan} plan, it should be {price} but I was billed {amount}."
+            - "There's an extra {amount} on my bill for something called {product}, which I never asked for."
+            - "My plan code is {plan_code} and the amount doesn't match what I signed up for."
+          agent_probe:
+            - "I'm sorry about that. Let me pull up your billing history."
+            - "Thanks, I can see your account. Let me check the charges for this cycle."
+          resolved:
+            - "I found the issue. The charge was applied by mistake and I've issued a credit of {amount} on your next bill."
+            - "You're right, that charge shouldn't be there. I've reversed it and you'll see the correction within 48 hours."
+          unresolved:
+            - "I'm afraid the charge is correct according to the current price table, so I can't reverse it."
+            - "I've opened a dispute ticket, but billing needs up to 10 business days to review it."
+
+      - id: technical_issue
+        description: Connectivity, speed, or service outage problems
+        weight: 25
+        resolution_rate: 0.6
+        sentiment: [0.55, 0.40, 0.05]
+        competitor_mention_rate: 0.06
+        templates:
+          openers:
+            - "My internet has been down since this morning."
+            - "I keep losing signal and calls drop all the time."
+            - "The connection is extremely slow, I can barely load a page."
+          details:
+            - "The {product} shows error {error_code} and restarting doesn't help."
+            - "I already rebooted the {product} twice. Still getting {error_code}."
+            - "It happens every evening, and I pay for {plan}, this isn't acceptable."
+          agent_probe:
+            - "Let me run a remote diagnostic on your line."
+            - "I'm checking the network status in your area now."
+          resolved:
+            - "I've reset your connection profile remotely. Could you check now? It should be back."
+            - "There was a provisioning error on your line; I've fixed it and your speed should be normal."
+          unresolved:
+            - "There's an ongoing issue in your area. Our engineers are on it but I don't have an ETA yet."
+            - "I need to schedule a technician visit; the first slot available is in five days."
+
+      - id: plan_change
+        description: Upgrades, downgrades, and plan questions
+        weight: 15
+        resolution_rate: 0.85
+        sentiment: [0.10, 0.60, 0.30]
+        competitor_mention_rate: 0.10
+        templates:
+          openers:
+            - "I'd like to change my plan."
+            - "Can you tell me what plans are available? I think I'm paying too much."
+            - "I want to upgrade, I keep running out of data."
+          details:
+            - "I'm currently on {plan} ({plan_code}) and I'd like something cheaper."
+            - "I need more data than {plan} gives me. What's the next option?"
+          agent_probe:
+            - "Sure, let me look at what fits your usage."
+            - "Of course. Let me check which plans are available for your line."
+          resolved:
+            - "Done. I've moved you to the new plan starting next cycle, with no change fee."
+            - "All set, the change is effective immediately and the difference will be prorated."
+          unresolved:
+            - "Unfortunately your contract has a minimum term, so I can't change the plan until it ends."
+            - "That plan isn't available in your region yet, sorry about that."
+
+      - id: cancellation
+        description: Customer asks to cancel the service
+        weight: 8
+        resolution_rate: 0.45   # unused for cancellation; retention_rate decides
+        sentiment: [0.70, 0.25, 0.05]
+        competitor_mention_rate: 0.45
+        templates:
+          openers:
+            - "I want to cancel my service."
+            - "Hi, I'm calling to cancel my line."
+            - "Please cancel my plan, I'm done."
+          details:
+            - "I've been a customer for years but {plan} just isn't worth {price} anymore."
+            - "I'm paying {price} for {plan} and it's too much for what I get."
+          agent_probe:
+            - "I'm sorry to hear that. Before we proceed, can I tell you about an offer?"
+            - "I understand. Let me check what I can do to keep you with us."
+          resolved:
+            - "I can give you 30% off for the next six months if you stay. ... Great, I've applied the discount."
+            - "I can move you to a loyalty plan at a lower price. ... Perfect, it's done and your line stays active."
+          unresolved:
+            - "Understood. I've processed the cancellation; your service ends at the close of this billing cycle."
+            - "Alright, the cancellation is confirmed. You'll get a final invoice and a confirmation email."
+
+      - id: roaming
+        description: Using the service abroad
+        weight: 7
+        resolution_rate: 0.75
+        sentiment: [0.30, 0.55, 0.15]
+        competitor_mention_rate: 0.05
+        templates:
+          openers:
+            - "I'm traveling next week, how does roaming work on my plan?"
+            - "I'm abroad and my data isn't working."
+          details:
+            - "I'm on {plan}. Is roaming included or do I need an add-on?"
+            - "I got a roaming charge of {amount} and I thought it was included."
+          agent_probe:
+            - "Let me check the roaming settings on your line."
+          resolved:
+            - "I've activated the travel pass on your line, it's valid for 7 days."
+            - "Roaming was disabled on your account; I've enabled it, please restart your phone."
+          unresolved:
+            - "Roaming charges are applied per the price table, I can't refund them."
+
+      - id: device_support
+        description: Help configuring or replacing devices
+        weight: 10
+        resolution_rate: 0.8
+        sentiment: [0.25, 0.60, 0.15]
+        competitor_mention_rate: 0.03
+        templates:
+          openers:
+            - "I need help setting up my {product}."
+            - "My {product} stopped working after the update."
+          details:
+            - "The lights on the {product} keep blinking and the app shows {error_code}."
+            - "I can't activate the {product}, it says {error_code}."
+          agent_probe:
+            - "Let's go through it step by step."
+            - "I'll send a configuration refresh to your device."
+          resolved:
+            - "Perfect, the device is now registered and working."
+            - "Great, the activation went through. You're all set."
+          unresolved:
+            - "It looks like the device is faulty. I've requested a replacement, it ships in 3 to 5 days."
+
+    events:
+      - id: price_increase_2026_09
+        description: Plan prices rose 15% on Sep 1 with little notice to customers
+        start: 2026-09-01
+        end: 2026-09-30
+        volume_multiplier: 1.35
+        reason_multipliers: { billing_dispute: 2.6, cancellation: 3.2, plan_change: 1.5 }
+        churn_multiplier: 1.6
+        mention_rate: 0.75
+        mention_phrases:
+          - "My bill went up from {price} to {new_price} and nobody told me."
+          - "I just saw the new price, {new_price} for the same {plan}? That's a 15% increase."
+          - "Since September I'm paying {new_price} instead of {price}."
+          - "I never got any notice about this price change."
+
+      - id: network_outage_2026_10
+        description: Regional 4G/5G outage after a core network update
+        start: 2026-10-14
+        end: 2026-10-16
+        volume_multiplier: 2.2
+        reason_multipliers: { technical_issue: 6.0, device_support: 1.8 }
+        churn_multiplier: 1.3
+        mention_rate: 0.8
+        mention_phrases:
+          - "Everyone in my neighborhood has been without signal since yesterday."
+          - "My phone just says {error_code} and no service, all day."
+          - "Is there an outage? Nothing works since the 14th."
+        slots: { error_code: "ERR-4G-503" }
+
+  # ======================================================================== BANKING
+  banking:
+    brand: Harbor Bank
+    products: ["debit card", "credit card", "mobile app", "savings account", "personal loan"]
+    competitors: ["Northwind Bank", "Pillar Digital", "Crestline Credit Union"]
+    error_codes: ["DECLINED-05", "CARD-HOLD-12", "AUTH-403"]
+    plans:
+      - { code: HB-ESSENTIAL, name: "Essential Account", monthly_price: 0.01, weight: 5 }
+      - { code: HB-PLUS, name: "Plus Account", monthly_price: 9.90, weight: 3 }
+      - { code: HB-PRIVATE, name: "Private Account", monthly_price: 29.90, weight: 1 }
+    channels: { chat: 0.7, voice: 0.3 }
+    cancellation_reason: account_closure
+    retention_rate: 0.35
+
+    reasons:
+      - id: card_blocked
+        description: Card declined or blocked
+        weight: 18
+        resolution_rate: 0.8
+        sentiment: [0.50, 0.40, 0.10]
+        competitor_mention_rate: 0.04
+        templates:
+          openers:
+            - "My card was declined at the supermarket."
+            - "My {product} is blocked and I don't know why."
+          details:
+            - "The terminal showed {error_code}. I have money in the account."
+            - "I tried three times and got {error_code} every time."
+          agent_probe:
+            - "Let me check the security status of your card."
+          resolved:
+            - "The card was blocked by our fraud filter after an unusual transaction. I've unblocked it."
+            - "There was a temporary hold; it's lifted now and the card is working."
+          unresolved:
+            - "For security reasons the card must be replaced. A new one will arrive in 5 business days."
+
+      - id: fraud_report
+        description: Unrecognized transactions
+        weight: 10
+        resolution_rate: 0.6
+        sentiment: [0.75, 0.20, 0.05]
+        competitor_mention_rate: 0.08
+        templates:
+          openers:
+            - "There are transactions on my account that I didn't make."
+            - "I think my card was cloned."
+          details:
+            - "I see a charge of {amount} from a store I've never been to."
+            - "Three purchases of {amount} each, all last night."
+          agent_probe:
+            - "I'm blocking the card right now and opening a fraud claim."
+          resolved:
+            - "The claim was approved and {amount} has been credited back to your account."
+          unresolved:
+            - "The investigation takes up to 30 days; we'll contact you with the outcome."
+            - "These were authenticated with your password, so we can't refund them for now."
+
+      - id: fee_dispute
+        description: Questions or complaints about fees
+        weight: 20
+        resolution_rate: 0.45
+        sentiment: [0.65, 0.30, 0.05]
+        competitor_mention_rate: 0.2
+        templates:
+          openers:
+            - "Why am I being charged a fee this month?"
+            - "There's a maintenance fee on my statement I don't understand."
+          details:
+            - "I'm on the {plan} ({plan_code}) and the fee was {price}, now it's {amount}."
+            - "I was charged {amount} for a transfer that used to be free."
+          agent_probe:
+            - "Let me check the fee schedule for your account."
+          resolved:
+            - "You're right, that fee shouldn't apply to your account. I've refunded {amount}."
+          unresolved:
+            - "This fee is part of the current fee schedule, so I can't waive it."
+            - "I can't refund it, but I can send you the fee table by email."
+
+      - id: loan_inquiry
+        description: Loan rates and applications
+        weight: 12
+        resolution_rate: 0.7
+        sentiment: [0.10, 0.65, 0.25]
+        competitor_mention_rate: 0.25
+        templates:
+          openers:
+            - "I'd like to know the rates for a {product}."
+            - "I applied for a {product} and haven't heard back."
+          details:
+            - "I need about {amount}. What would the monthly payment be?"
+          agent_probe:
+            - "Let me run a simulation for you."
+          resolved:
+            - "You're pre-approved. I've sent the proposal to your app."
+          unresolved:
+            - "Unfortunately the application wasn't approved this time."
+
+      - id: app_login
+        description: Can't access the mobile app
+        weight: 22
+        resolution_rate: 0.7
+        sentiment: [0.50, 0.45, 0.05]
+        competitor_mention_rate: 0.05
+        templates:
+          openers:
+            - "I can't log in to the app."
+            - "The app keeps logging me out."
+          details:
+            - "It shows {error_code} after I enter my password."
+            - "I reinstalled the {product} and still get {error_code}."
+          agent_probe:
+            - "Let me reset your device registration."
+          resolved:
+            - "Done, please try again. You should be able to log in now."
+          unresolved:
+            - "There's a known issue with the app; the team is working on a fix."
+
+      - id: account_closure
+        description: Customer asks to close the account
+        weight: 6
+        resolution_rate: 0.35
+        sentiment: [0.60, 0.35, 0.05]
+        competitor_mention_rate: 0.55
+        templates:
+          openers:
+            - "I'd like to close my account."
+            - "Please close my account and transfer the balance."
+          details:
+            - "I'm paying {price} a month for the {plan} and getting nothing for it."
+          agent_probe:
+            - "I'm sorry to hear that. Can I offer you a fee waiver before we proceed?"
+          resolved:
+            - "I've waived your fees for the next 12 months. ... Great, I'm glad you're staying."
+          unresolved:
+            - "Understood. The account closure is scheduled and the balance will be transferred in 2 business days."
+
+    events:
+      - id: app_outage_2026_08
+        description: Mobile app login failures after an authentication provider migration
+        start: 2026-08-18
+        end: 2026-08-21
+        volume_multiplier: 1.8
+        reason_multipliers: { app_login: 5.0 }
+        churn_multiplier: 1.2
+        mention_rate: 0.8
+        mention_phrases:
+          - "Since the update on the 18th I can't get in, it just says {error_code}."
+          - "Is the app down? I've been locked out for two days."
+        slots: { error_code: "AUTH-401-MIGR" }
+
+      - id: fee_increase_2026_10
+        description: Monthly maintenance fees increased on Oct 1
+        start: 2026-10-01
+        end: 2026-10-31
+        volume_multiplier: 1.25
+        reason_multipliers: { fee_dispute: 2.8, account_closure: 2.5 }
+        churn_multiplier: 1.5
+        mention_rate: 0.7
+        mention_phrases:
+          - "The monthly fee went from {price} to {new_price} this month."
+          - "Nobody warned me about the new fees."
+
+  # ===================================================================== E-COMMERCE
+  ecommerce:
+    brand: Parcelo
+    products: ["wireless headphones", "air fryer", "running shoes", "smartwatch", "office chair"]
+    competitors: ["ShopNest", "Kartly", "Bazaar Direct"]
+    error_codes: ["IN-TRANSIT-HOLD", "ADDR-UNVERIFIED", "PAY-3DS-FAIL"]
+    plans:
+      - { code: PC-FREE, name: "Free account", monthly_price: 0.01, weight: 6 }
+      - { code: PC-PRIME, name: "Parcelo Plus membership", monthly_price: 12.90, weight: 3 }
+    channels: { chat: 0.85, voice: 0.15 }
+    cancellation_reason: membership_cancellation
+    retention_rate: 0.4
+
+    reasons:
+      - id: late_delivery
+        description: Order not delivered on time
+        weight: 28
+        resolution_rate: 0.5
+        sentiment: [0.70, 0.25, 0.05]
+        competitor_mention_rate: 0.12
+        templates:
+          openers:
+            - "My order still hasn't arrived."
+            - "Where is my package? It was due three days ago."
+          details:
+            - "I ordered {product} and tracking hasn't moved since it left the warehouse."
+            - "The tracking says {error_code} for my {product}."
+          agent_probe:
+            - "Let me check with the carrier."
+          resolved:
+            - "The package is out for delivery today, and I've added a {amount} voucher for the delay."
+          unresolved:
+            - "The carrier hasn't given us an update yet. If it doesn't arrive in 5 days we'll refund it."
+
+      - id: refund_request
+        description: Refund status and requests
+        weight: 20
+        resolution_rate: 0.6
+        sentiment: [0.55, 0.40, 0.05]
+        competitor_mention_rate: 0.08
+        templates:
+          openers:
+            - "I returned an item two weeks ago and I still don't have my refund."
+            - "I want a refund for my order."
+          details:
+            - "It was the {product}, {amount}. The return was confirmed."
+          agent_probe:
+            - "Let me look up the return."
+          resolved:
+            - "The refund of {amount} was processed today and should show in 3 to 5 days."
+          unresolved:
+            - "The returned item is still being inspected, so the refund is on hold."
+
+      - id: damaged_item
+        description: Item arrived damaged or wrong
+        weight: 14
+        resolution_rate: 0.75
+        sentiment: [0.60, 0.35, 0.05]
+        competitor_mention_rate: 0.05
+        templates:
+          openers:
+            - "My {product} arrived broken."
+            - "I received the wrong item."
+          details:
+            - "The box was crushed and the {product} doesn't turn on."
+          agent_probe:
+            - "I'm sorry. Could you send a photo of the item?"
+          resolved:
+            - "I've arranged a free replacement, it ships tomorrow."
+          unresolved:
+            - "This seller doesn't accept returns for this item, I can only open a claim."
+
+      - id: payment_issue
+        description: Checkout and payment problems
+        weight: 12
+        resolution_rate: 0.7
+        sentiment: [0.45, 0.45, 0.10]
+        competitor_mention_rate: 0.1
+        templates:
+          openers:
+            - "My payment failed but the money was taken from my account."
+            - "I can't complete checkout."
+          details:
+            - "I got {error_code} at checkout and was still charged {amount}."
+          agent_probe:
+            - "Let me check the payment status."
+          resolved:
+            - "The charge was a pre-authorization and has been released."
+          unresolved:
+            - "The payment provider needs up to 7 days to release the amount."
+
+      - id: account_access
+        description: Login and account issues
+        weight: 10
+        resolution_rate: 0.8
+        sentiment: [0.35, 0.55, 0.10]
+        competitor_mention_rate: 0.03
+        templates:
+          openers:
+            - "I can't access my account."
+          details:
+            - "The password reset email never arrives."
+          agent_probe:
+            - "Let me verify your identity."
+          resolved:
+            - "I've reset your access, please check your email now."
+          unresolved:
+            - "For security reasons I need you to verify your identity through the form first."
+
+      - id: membership_cancellation
+        description: Customer cancels the paid membership
+        weight: 6
+        resolution_rate: 0.4
+        sentiment: [0.55, 0.40, 0.05]
+        competitor_mention_rate: 0.5
+        templates:
+          openers:
+            - "I want to cancel my membership."
+          details:
+            - "I'm paying {price} a month and deliveries are always late."
+          agent_probe:
+            - "I'm sorry to hear that. Can I offer you three free months?"
+          resolved:
+            - "Great, I've added three free months to your membership."
+          unresolved:
+            - "Understood, your membership is cancelled and you won't be charged again."
+
+    events:
+      - id: carrier_delays_2026_11
+        description: Carrier backlog during the November sales period
+        start: 2026-11-20
+        end: 2026-11-30
+        volume_multiplier: 2.5
+        reason_multipliers: { late_delivery: 4.0, membership_cancellation: 1.8 }
+        churn_multiplier: 1.4
+        mention_rate: 0.7
+        mention_phrases:
+          - "I bought it in the Black Friday sale and it's been stuck for a week."
+          - "Tracking has said {error_code} for days."
+        slots: { error_code: "HUB-BACKLOG" }
