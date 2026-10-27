@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.core.config import Settings
 from app.llm.base import EmbeddingProvider, LLMProvider
+from app.workers.queue import JobQueue
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -45,3 +46,11 @@ RedisDep = Annotated[Redis, Depends(get_redis)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 LLMDep = Annotated[LLMProvider, Depends(get_llm)]
 EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embeddings)]
+
+
+def get_queue(request: Request) -> JobQueue:
+    queue: JobQueue = request.app.state.queue
+    return queue
+
+
+QueueDep = Annotated[JobQueue, Depends(get_queue)]

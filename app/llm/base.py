@@ -63,6 +63,9 @@ class LLMProvider(Protocol):
 @runtime_checkable
 class EmbeddingProvider(Protocol):
     @property
+    def model(self) -> str: ...
+
+    @property
     def dim(self) -> int: ...
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
