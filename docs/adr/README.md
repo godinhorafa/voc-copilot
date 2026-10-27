@@ -8,5 +8,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0002 | [No agent framework](0002-no-agent-framework.md)                | Accepted |
 | 0003 | [Hybrid retrieval with RRF](0003-hybrid-retrieval.md)           | Proposed |
 | 0004 | [Labels-first synthetic data](0004-labels-first-synthetic-data.md) | Accepted |
+| 0005 | [Idempotent ingestion with whole-job retries](0005-idempotent-ingestion-and-retries.md) | Accepted |
 
 Template: [`template.md`](template.md).
