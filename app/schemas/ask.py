@@ -41,6 +41,7 @@ class AskResponse(BaseModel):
     answer: str
     citations: list[Citation]
     tools_used: list[str]
+    retrieval: str = Field(description="Retrieval strategy used, e.g. keyword or hybrid+rerank")
     sources_retrieved: int
     dropped_citations: int = Field(description="Citations removed because they didn't verify")
     model: str | None
