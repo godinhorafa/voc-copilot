@@ -9,8 +9,11 @@ retrieval code without a network call.
 import hashlib
 import math
 import re
+import types
+import typing
 from collections import deque
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -27,6 +30,26 @@ def _count_tokens(text: str) -> int:
     return len(_TOKEN.findall(text))
 
 
+def _placeholder(annotation: Any) -> Any:
+    origin = typing.get_origin(annotation)
+    if origin is typing.Literal:
+        return typing.get_args(annotation)[0]
+    if origin in (list, set, tuple):
+        return []
+    if origin in (typing.Union, types.UnionType):
+        return None
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return placeholder_instance(annotation)
+    return {bool: False, int: 0, float: 0.0, str: "fake"}.get(annotation)
+
+
+def placeholder_instance(schema: type[BaseModel]) -> BaseModel:
+    """A schema-valid instance with the simplest value for every field."""
+    return schema.model_validate(
+        {name: _placeholder(field.annotation) for name, field in schema.model_fields.items()}
+    )
+
+
 class FakeLLMProvider:
     def __init__(
         self,
@@ -39,6 +62,11 @@ class FakeLLMProvider:
         self._default = default
         self._structured = structured
         self.calls: list[list[Message]] = []
+
+    @classmethod
+    def permissive(cls) -> "FakeLLMProvider":
+        """Answers any structured request with placeholder values (offline dev mode)."""
+        return cls(structured=lambda schema, _: placeholder_instance(schema))
 
     def queue(self, *responses: str) -> None:
         self._responses.extend(responses)
