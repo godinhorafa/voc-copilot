@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -106,19 +107,23 @@ def queue() -> FakeQueue:
 
 
 @pytest.fixture
-async def client(
+async def app(
     settings: Settings, queue: FakeQueue, db: async_sessionmaker[AsyncSession]
-) -> AsyncIterator[AsyncClient]:
-    app = create_app(settings)
-    async with (
-        app.router.lifespan_context(app),
-        AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-            headers={"X-API-Key": TEST_API_KEY},
-        ) as ac,
-    ):
-        app.state.queue = queue
+) -> AsyncIterator[FastAPI]:
+    """Started app; tests may swap `app.state.llm` / `app.state.embeddings`."""
+    application = create_app(settings)
+    async with application.router.lifespan_context(application):
+        application.state.queue = queue
+        yield application
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-API-Key": TEST_API_KEY},
+    ) as ac:
         yield ac
 
 

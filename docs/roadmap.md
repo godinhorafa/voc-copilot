@@ -55,13 +55,15 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 - Re-extraction when the extractor version changes (today a version bump only applies to new or changed conversations)
 - LLM-rendered dataset for retrieval evals (from phase 1)
 
-## Phase 3 – Minimal RAG and eval baseline
+## Phase 3 – Minimal RAG and eval baseline ✅
 
-- Vector search only; `/v1/ask` without an agent (retrieve → answer with citations)
-- Citation validation: every cited id must be in the retrieved set
-- Golden set (30–50 questions) derived from ground truth; recall@k and MRR
+- Vector search with industry/date filters; pgvector iterative HNSW scan so selective filters still return k rows
+- `POST /v1/ask`: retrieve → numbered sources → structured answer with citations; no LLM call when nothing is retrieved
+- Citation validation: a citation must name a retrieved source and quote text that appears in it (normalized for case, whitespace, typographic quotes); failures are dropped after one retry with feedback
+- Golden set (45 questions for `telecom-seed42-n500`) derived from ground truth; a test fails if it drifts from the dataset
+- `make eval-retrieval`: MRR, precision@k, recall@k (normalized by min(k, |relevant|)), by question type
 
-**Exit:** first row of the README results table filled.
+**Exit:** first row of the README results table filled with the offline baseline (hashed bag-of-words embeddings): MRR@10 0.387, recall@10 0.268. **Pending:** the same eval with real embeddings (needs an API key).
 
 ## Phase 4 – Hybrid retrieval
 

@@ -84,3 +84,42 @@ def set_scores(expected: Sequence[set[str]], predicted: Sequence[set[str]]) -> S
     return SetScores(
         precision, recall, _f1(precision, recall), exact / len(expected) if expected else 0.0
     )
+
+
+@dataclass(frozen=True)
+class RankingScores:
+    mrr: float  # 1 / rank of the first relevant item, 0 if none in the list
+    precision: float  # relevant share of the top k
+    recall: float  # relevant found in top k / min(k, |relevant|)
+
+
+def ranking_scores(ranked: Sequence[str], relevant: set[str], k: int) -> RankingScores:
+    """Scores for one query.
+
+    Recall is normalized by min(k, |relevant|): a question with 40 relevant
+    conversations can't have more than k of them in the top k, so plain recall
+    would cap far below 1 and mostly measure the size of the relevant set.
+    """
+    if k <= 0:
+        raise ValueError("k must be positive")
+    if not relevant:
+        raise ValueError("a query needs at least one relevant item")
+    top = list(ranked[:k])
+    first = next((i for i, item in enumerate(top, start=1) if item in relevant), None)
+    hits = sum(item in relevant for item in top)
+    return RankingScores(
+        mrr=1 / first if first else 0.0,
+        precision=hits / k,
+        recall=hits / min(k, len(relevant)),
+    )
+
+
+def mean_ranking(scores: Sequence[RankingScores]) -> RankingScores:
+    if not scores:
+        return RankingScores(0.0, 0.0, 0.0)
+    n = len(scores)
+    return RankingScores(
+        mrr=sum(s.mrr for s in scores) / n,
+        precision=sum(s.precision for s in scores) / n,
+        recall=sum(s.recall for s in scores) / n,
+    )
