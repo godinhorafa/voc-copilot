@@ -10,6 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Chunk, Conversation
+from app.retrieval.filters import apply_filters
 from app.retrieval.types import RetrievedChunk, SearchFilters
 
 EF_SEARCH = 100
@@ -37,14 +38,7 @@ async def vector_search(
         .order_by(distance)
         .limit(k)
     )
-    if filters.industry:
-        stmt = stmt.where(Conversation.industry == filters.industry)
-    if filters.start:
-        stmt = stmt.where(Conversation.started_at >= filters.start)
-    if filters.end:
-        stmt = stmt.where(Conversation.started_at < filters.end)
-
-    rows = (await session.execute(stmt)).all()
+    rows = (await session.execute(apply_filters(stmt, filters))).all()
     # relaxed_order may return rows slightly out of order; restore exact order.
     return sorted(
         (
