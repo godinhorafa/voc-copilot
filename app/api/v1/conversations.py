@@ -11,6 +11,7 @@ from app.schemas.conversation import (
     ConversationOut,
     IngestRequest,
     IngestResponse,
+    InsightOut,
     ProcessingStatus,
     TurnOut,
 )
@@ -64,7 +65,7 @@ async def get_conversation(external_id: str, session: SessionDep) -> Conversatio
     conv = await session.scalar(
         select(Conversation)
         .where(Conversation.external_id == external_id)
-        .options(selectinload(Conversation.turns))
+        .options(selectinload(Conversation.turns), selectinload(Conversation.insight))
     )
     if conv is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
@@ -84,5 +85,6 @@ async def get_conversation(external_id: str, session: SessionDep) -> Conversatio
         status=state,
         processing_error=conv.processing_error,
         chunk_count=chunk_count or 0,
+        insight=InsightOut.model_validate(conv.insight) if conv.insight else None,
         turns=[TurnOut.model_validate(t) for t in conv.turns],
     )

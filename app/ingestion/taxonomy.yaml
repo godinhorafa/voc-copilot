@@ -1,0 +1,37 @@
+# Contact reason taxonomy used by insight extraction.
+#
+# This is business configuration owned by the application: the extractor may
+# only assign these ids (plus `other`), so metrics aggregate over a closed set.
+# The synthetic generator uses the same ids; a test keeps the two in sync.
+
+industries:
+  telecom:
+    cancellation_reason: cancellation
+    reasons:
+      billing_dispute: Unexpected or incorrect charges on the bill
+      technical_issue: Connectivity, speed, or service outage problems
+      plan_change: Upgrades, downgrades, and plan questions
+      cancellation: Customer asks to cancel the service
+      roaming: Using the service abroad
+      device_support: Help configuring or replacing devices
+      other: Anything that does not fit the reasons above
+  banking:
+    cancellation_reason: account_closure
+    reasons:
+      card_blocked: Card declined or blocked
+      fraud_report: Unrecognized transactions
+      fee_dispute: Questions or complaints about fees
+      loan_inquiry: Loan rates and applications
+      app_login: Can't access the mobile app
+      account_closure: Customer asks to close the account
+      other: Anything that does not fit the reasons above
+  ecommerce:
+    cancellation_reason: membership_cancellation
+    reasons:
+      late_delivery: Order not delivered on time
+      refund_request: Refund status and requests
+      damaged_item: Item arrived damaged or wrong
+      payment_issue: Checkout and payment problems
+      account_access: Login and account issues
+      membership_cancellation: Customer cancels the paid membership
+      other: Anything that does not fit the reasons above

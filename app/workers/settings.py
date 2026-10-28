@@ -7,7 +7,7 @@ from arq.connections import RedisSettings
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import create_engine, create_sessionmaker
-from app.llm.factory import build_embedding_provider
+from app.llm.factory import build_embedding_provider, build_llm_provider
 from app.workers.tasks import process_ingestion_job
 
 _settings = get_settings()
@@ -20,6 +20,7 @@ async def startup(ctx: dict[str, Any]) -> None:
     ctx["engine"] = engine
     ctx["sessionmaker"] = create_sessionmaker(engine)
     ctx["embeddings"] = build_embedding_provider(_settings)
+    ctx["llm"] = build_llm_provider(_settings)
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
