@@ -28,14 +28,24 @@ Each phase is a vertical slice that ends with something runnable and, from phase
 
 ## Phase 2 – Ingestion
 
-- Schema: `customers`, `conversations`, `turns`, `chunks`, `insights`, `jobs`
-- `POST /v1/conversations` → `202` + `job_id`; arq worker with retries and backoff
-- Idempotency via `external_id` + `content_hash`
-- Turn-aware chunking; embeddings; structured extraction validated by Pydantic, with `extractor_version` stored
-- Real providers: OpenAI, Azure OpenAI, Ollama
-- API key auth on `/v1/*`
+Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real providers).
 
-- `make seed`: generate + ingest
+### 2a – Upload, queue, chunks, embeddings ✅
+
+- Schema: `customers`, `conversations`, `turns`, `chunks` (pgvector HNSW + `tsvector` GIN), `jobs`
+- `POST /v1/conversations` → `202` + `job_id`; idempotent by `external_id` + content hash
+- arq worker; whole-job retry with backoff, idempotent per conversation; `partial` status on the last attempt
+- Turn-aware chunking with speaker labels and overlap
+- `PUT /v1/customers`, `GET /v1/jobs/{id}`, `GET /v1/conversations/{external_id}`
+- API key auth on `/v1/*`
+- `make seed` (generate + ingest); worker in Compose
+- Tests: arq end to end through Redis, model/migration drift check
+
+### 2b – Extraction and providers
+
+- `insights` table; structured extraction (contact reason, sentiment, resolution, competitors, churn risk) validated by Pydantic, with `extractor_version` and model stored
+- Real providers: OpenAI, Azure OpenAI, Ollama
+- Extraction runs in the same job, after chunking; a failed extraction does not discard chunks
 
 **Exit:** 500 conversations ingested; extraction F1 per field reported against ground truth.
 

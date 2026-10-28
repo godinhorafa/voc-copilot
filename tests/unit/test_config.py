@@ -30,4 +30,4 @@ def test_azure_reports_all_missing_settings() -> None:
 
 def test_production_rejects_default_api_key() -> None:
     with pytest.raises(ValidationError, match="API_KEY"):
-        make_settings(environment="production")
+        make_settings(environment="production", api_key="change-me")

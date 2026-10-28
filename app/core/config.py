@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = Field(default=1536, gt=0)
+    embedding_batch_size: int = Field(default=64, gt=0)
+
+    chunk_max_words: int = Field(default=160, gt=0)
+    chunk_overlap_turns: int = Field(default=1, ge=0)
+    ingestion_max_tries: int = Field(default=4, ge=1)
+    ingestion_retry_base_s: float = Field(default=5.0, ge=0)
 
     openai_api_key: SecretStr | None = None
     azure_openai_endpoint: str | None = None

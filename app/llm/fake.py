@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.llm.base import Completion, Message, StructuredCompletion, Usage
 
 FAKE_MODEL = "fake-llm"
+FAKE_EMBEDDING_MODEL = "fake-embedding"
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 
 StructuredFactory = Callable[[type[BaseModel], Sequence[Message]], BaseModel]
@@ -87,6 +88,10 @@ class FakeLLMProvider:
 class FakeEmbeddingProvider:
     def __init__(self, dim: int = 1536) -> None:
         self._dim = dim
+
+    @property
+    def model(self) -> str:
+        return FAKE_EMBEDDING_MODEL
 
     @property
     def dim(self) -> int:
