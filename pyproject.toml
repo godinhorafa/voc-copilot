@@ -51,18 +51,18 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF", "PT", "N"]
 ignore = ["S101"]  # asserts are fine; tests and type narrowing rely on them
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "scripts", "synthetic", "tests"]
+known-first-party = ["app", "evals", "scripts", "synthetic", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]
 "migrations/**" = ["N999"]
-"synthetic/**" = ["S311"]  # seeded, non-cryptographic randomness is the point
+"{synthetic,evals}/**" = ["S311"]  # seeded, non-cryptographic randomness is the point
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["app", "scripts", "synthetic", "tests"]
+files = ["app", "evals", "scripts", "synthetic", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["testcontainers.*", "pgvector.*"]
