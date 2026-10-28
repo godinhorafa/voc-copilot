@@ -65,10 +65,15 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 
 **Exit:** first row of the README results table filled with the offline baseline (hashed bag-of-words embeddings): MRR@10 0.387, recall@10 0.268. **Pending:** the same eval with real embeddings (needs an API key).
 
-## Phase 4 – Hybrid retrieval
+## Phase 4 – Hybrid retrieval ✅ (pending real-embedding numbers)
 
-- Postgres full-text search, Reciprocal Rank Fusion, reranking
-- One results-table row per step; accept or reject ADR 0003 on the numbers
+- Keyword search: OR of the question's stemmed terms (quoted, so query syntax can't be injected), ranked with `ts_rank_cd`
+- Reciprocal Rank Fusion (k = 60) of vector and keyword rankings; `Retriever` selects vector | keyword | hybrid, optionally followed by an LLM reranker (graded relevance in one call)
+- `RETRIEVAL_STRATEGY` / `RETRIEVAL_RERANK` settings; `/v1/ask` reports which strategy answered
+- `make eval-retrieval ARGS="--strategy …"`; results table filled for the offline embeddings: keyword 0.826 MRR, hybrid 0.722, vector 0.387
+- ADR 0003 stays **Proposed**: the offline embeddings can't test it. Hybrid is the interim default because keyword-only returns nothing for questions without shared terms
+
+**Pending (needs an API key):** vector/hybrid with real embeddings, rerank, and paraphrased golden questions; then accept or reject ADR 0003.
 
 ## Phase 5 – Text-to-SQL
 
@@ -94,4 +99,5 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 ## Phase 9 – Hardening and extras
 
 - PII redaction before embedding, multi-tenancy with row-level security, rate limiting
-- Minimal React UI; deploy guide for Azure Container Apps
+- React UI built with **shadcn/ui** (Tailwind, Radix): modern layout, accessible components, dark mode. Chat with streamed answers and clickable citations that open the source conversation; insights dashboard with filters
+- Deploy guide for Azure Container Apps

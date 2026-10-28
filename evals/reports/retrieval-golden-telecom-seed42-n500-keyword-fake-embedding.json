@@ -1,0 +1,1026 @@
+{
+  "golden": "golden-telecom-seed42-n500",
+  "strategy": "keyword",
+  "embedding_model": "fake-embedding",
+  "k": 10,
+  "overall": {
+    "mrr": 0.8255202821869488,
+    "precision": 0.6555555555555556,
+    "recall": 0.767821869488536
+  },
+  "by_type": {
+    "churn_month": {
+      "mrr": 1.0,
+      "precision": 0.525,
+      "recall": 0.95
+    },
+    "competitor": {
+      "mrr": 0.7083333333333334,
+      "precision": 0.6,
+      "recall": 0.6
+    },
+    "event": {
+      "mrr": 1.0,
+      "precision": 0.55,
+      "recall": 0.5666666666666667
+    },
+    "reason_month": {
+      "mrr": 0.8062059082892417,
+      "precision": 0.6805555555555556,
+      "recall": 0.7727402998236331
+    }
+  },
+  "questions": [
+    {
+      "id": "reason_month:billing_dispute:2026-06",
+      "type": "reason_month",
+      "relevant": 11,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000059",
+        "conv_telecom_000004",
+        "conv_telecom_000006",
+        "conv_telecom_000046",
+        "conv_telecom_000057",
+        "conv_telecom_000055",
+        "conv_telecom_000019",
+        "conv_telecom_000042",
+        "conv_telecom_000040",
+        "conv_telecom_000014"
+      ]
+    },
+    {
+      "id": "reason_month:billing_dispute:2026-07",
+      "type": "reason_month",
+      "relevant": 19,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000120",
+        "conv_telecom_000123",
+        "conv_telecom_000098",
+        "conv_telecom_000125",
+        "conv_telecom_000079",
+        "conv_telecom_000109",
+        "conv_telecom_000094",
+        "conv_telecom_000071",
+        "conv_telecom_000090",
+        "conv_telecom_000074"
+      ]
+    },
+    {
+      "id": "reason_month:billing_dispute:2026-08",
+      "type": "reason_month",
+      "relevant": 24,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000179",
+        "conv_telecom_000200",
+        "conv_telecom_000216",
+        "conv_telecom_000147",
+        "conv_telecom_000182",
+        "conv_telecom_000207",
+        "conv_telecom_000226",
+        "conv_telecom_000197",
+        "conv_telecom_000178",
+        "conv_telecom_000206"
+      ]
+    },
+    {
+      "id": "reason_month:billing_dispute:2026-09",
+      "type": "reason_month",
+      "relevant": 41,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000242",
+        "conv_telecom_000239",
+        "conv_telecom_000327",
+        "conv_telecom_000294",
+        "conv_telecom_000298",
+        "conv_telecom_000307",
+        "conv_telecom_000313",
+        "conv_telecom_000329",
+        "conv_telecom_000253",
+        "conv_telecom_000274"
+      ]
+    },
+    {
+      "id": "reason_month:billing_dispute:2026-10",
+      "type": "reason_month",
+      "relevant": 18,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000355",
+        "conv_telecom_000420",
+        "conv_telecom_000409",
+        "conv_telecom_000412",
+        "conv_telecom_000399",
+        "conv_telecom_000382",
+        "conv_telecom_000375",
+        "conv_telecom_000357",
+        "conv_telecom_000337",
+        "conv_telecom_000395"
+      ]
+    },
+    {
+      "id": "reason_month:billing_dispute:2026-11",
+      "type": "reason_month",
+      "relevant": 23,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000451",
+        "conv_telecom_000472",
+        "conv_telecom_000489",
+        "conv_telecom_000484",
+        "conv_telecom_000462",
+        "conv_telecom_000473",
+        "conv_telecom_000455",
+        "conv_telecom_000496",
+        "conv_telecom_000429",
+        "conv_telecom_000457"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-06",
+      "type": "reason_month",
+      "relevant": 10,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.9,
+        "recall": 0.9
+      },
+      "top": [
+        "conv_telecom_000037",
+        "conv_telecom_000067",
+        "conv_telecom_000031",
+        "conv_telecom_000063",
+        "conv_telecom_000068",
+        "conv_telecom_000054",
+        "conv_telecom_000038",
+        "conv_telecom_000051",
+        "conv_telecom_000035",
+        "conv_telecom_000062"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-07",
+      "type": "reason_month",
+      "relevant": 5,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000082",
+        "conv_telecom_000100",
+        "conv_telecom_000108",
+        "conv_telecom_000119",
+        "conv_telecom_000122",
+        "conv_telecom_000101",
+        "conv_telecom_000129",
+        "conv_telecom_000075",
+        "conv_telecom_000104",
+        "conv_telecom_000134"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-08",
+      "type": "reason_month",
+      "relevant": 7,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.7,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000222",
+        "conv_telecom_000229",
+        "conv_telecom_000166",
+        "conv_telecom_000168",
+        "conv_telecom_000169",
+        "conv_telecom_000227",
+        "conv_telecom_000165",
+        "conv_telecom_000160",
+        "conv_telecom_000173",
+        "conv_telecom_000178"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-09",
+      "type": "reason_month",
+      "relevant": 16,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000297",
+        "conv_telecom_000278",
+        "conv_telecom_000303",
+        "conv_telecom_000262",
+        "conv_telecom_000308",
+        "conv_telecom_000256",
+        "conv_telecom_000335",
+        "conv_telecom_000237",
+        "conv_telecom_000260",
+        "conv_telecom_000247"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-10",
+      "type": "reason_month",
+      "relevant": 4,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.4,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000342",
+        "conv_telecom_000360",
+        "conv_telecom_000386",
+        "conv_telecom_000419",
+        "conv_telecom_000366",
+        "conv_telecom_000364",
+        "conv_telecom_000370",
+        "conv_telecom_000373",
+        "conv_telecom_000368",
+        "conv_telecom_000338"
+      ]
+    },
+    {
+      "id": "reason_month:cancellation:2026-11",
+      "type": "reason_month",
+      "relevant": 6,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 0.8333333333333334
+      },
+      "top": [
+        "conv_telecom_000480",
+        "conv_telecom_000488",
+        "conv_telecom_000487",
+        "conv_telecom_000491",
+        "conv_telecom_000492",
+        "conv_telecom_000484",
+        "conv_telecom_000481",
+        "conv_telecom_000495",
+        "conv_telecom_000425",
+        "conv_telecom_000496"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-06",
+      "type": "reason_month",
+      "relevant": 9,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.6,
+        "recall": 0.6666666666666666
+      },
+      "top": [
+        "conv_telecom_000043",
+        "conv_telecom_000061",
+        "conv_telecom_000030",
+        "conv_telecom_000023",
+        "conv_telecom_000062",
+        "conv_telecom_000015",
+        "conv_telecom_000035",
+        "conv_telecom_000031",
+        "conv_telecom_000008",
+        "conv_telecom_000045"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-07",
+      "type": "reason_month",
+      "relevant": 13,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000075",
+        "conv_telecom_000134",
+        "conv_telecom_000096",
+        "conv_telecom_000089",
+        "conv_telecom_000113",
+        "conv_telecom_000101",
+        "conv_telecom_000104",
+        "conv_telecom_000110",
+        "conv_telecom_000111",
+        "conv_telecom_000130"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-08",
+      "type": "reason_month",
+      "relevant": 10,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000233",
+        "conv_telecom_000159",
+        "conv_telecom_000203",
+        "conv_telecom_000160",
+        "conv_telecom_000213",
+        "conv_telecom_000188",
+        "conv_telecom_000152",
+        "conv_telecom_000199",
+        "conv_telecom_000212",
+        "conv_telecom_000173"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-09",
+      "type": "reason_month",
+      "relevant": 8,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000326",
+        "conv_telecom_000257",
+        "conv_telecom_000315",
+        "conv_telecom_000267",
+        "conv_telecom_000251",
+        "conv_telecom_000325",
+        "conv_telecom_000243",
+        "conv_telecom_000335",
+        "conv_telecom_000285",
+        "conv_telecom_000332"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-10",
+      "type": "reason_month",
+      "relevant": 10,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 0.8
+      },
+      "top": [
+        "conv_telecom_000406",
+        "conv_telecom_000338",
+        "conv_telecom_000370",
+        "conv_telecom_000354",
+        "conv_telecom_000340",
+        "conv_telecom_000352",
+        "conv_telecom_000423",
+        "conv_telecom_000392",
+        "conv_telecom_000389",
+        "conv_telecom_000358"
+      ]
+    },
+    {
+      "id": "reason_month:device_support:2026-11",
+      "type": "reason_month",
+      "relevant": 6,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 0.8333333333333334
+      },
+      "top": [
+        "conv_telecom_000492",
+        "conv_telecom_000485",
+        "conv_telecom_000434",
+        "conv_telecom_000441",
+        "conv_telecom_000433",
+        "conv_telecom_000431",
+        "conv_telecom_000470",
+        "conv_telecom_000432",
+        "conv_telecom_000445",
+        "conv_telecom_000427"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-06",
+      "type": "reason_month",
+      "relevant": 8,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 0.625
+      },
+      "top": [
+        "conv_telecom_000001",
+        "conv_telecom_000041",
+        "conv_telecom_000038",
+        "conv_telecom_000026",
+        "conv_telecom_000063",
+        "conv_telecom_000033",
+        "conv_telecom_000010",
+        "conv_telecom_000035",
+        "conv_telecom_000062",
+        "conv_telecom_000052"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-07",
+      "type": "reason_month",
+      "relevant": 16,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000141",
+        "conv_telecom_000095",
+        "conv_telecom_000117",
+        "conv_telecom_000072",
+        "conv_telecom_000121",
+        "conv_telecom_000136",
+        "conv_telecom_000126",
+        "conv_telecom_000076",
+        "conv_telecom_000115",
+        "conv_telecom_000092"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-08",
+      "type": "reason_month",
+      "relevant": 14,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.9,
+        "recall": 0.9
+      },
+      "top": [
+        "conv_telecom_000151",
+        "conv_telecom_000234",
+        "conv_telecom_000204",
+        "conv_telecom_000215",
+        "conv_telecom_000189",
+        "conv_telecom_000231",
+        "conv_telecom_000225",
+        "conv_telecom_000168",
+        "conv_telecom_000167",
+        "conv_telecom_000153"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-09",
+      "type": "reason_month",
+      "relevant": 13,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 0.8
+      },
+      "top": [
+        "conv_telecom_000321",
+        "conv_telecom_000309",
+        "conv_telecom_000335",
+        "conv_telecom_000320",
+        "conv_telecom_000275",
+        "conv_telecom_000265",
+        "conv_telecom_000301",
+        "conv_telecom_000244",
+        "conv_telecom_000278",
+        "conv_telecom_000289"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-10",
+      "type": "reason_month",
+      "relevant": 15,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000379",
+        "conv_telecom_000343",
+        "conv_telecom_000380",
+        "conv_telecom_000388",
+        "conv_telecom_000376",
+        "conv_telecom_000403",
+        "conv_telecom_000346",
+        "conv_telecom_000383",
+        "conv_telecom_000365",
+        "conv_telecom_000402"
+      ]
+    },
+    {
+      "id": "reason_month:plan_change:2026-11",
+      "type": "reason_month",
+      "relevant": 9,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 0.8888888888888888
+      },
+      "top": [
+        "conv_telecom_000460",
+        "conv_telecom_000449",
+        "conv_telecom_000442",
+        "conv_telecom_000469",
+        "conv_telecom_000463",
+        "conv_telecom_000464",
+        "conv_telecom_000491",
+        "conv_telecom_000483",
+        "conv_telecom_000432",
+        "conv_telecom_000492"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-06",
+      "type": "reason_month",
+      "relevant": 10,
+      "scores": {
+        "mrr": 0.14285714285714285,
+        "precision": 0.2,
+        "recall": 0.2
+      },
+      "top": [
+        "conv_telecom_000037",
+        "conv_telecom_000067",
+        "conv_telecom_000031",
+        "conv_telecom_000063",
+        "conv_telecom_000068",
+        "conv_telecom_000062",
+        "conv_telecom_000065",
+        "conv_telecom_000052",
+        "conv_telecom_000048",
+        "conv_telecom_000044"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-07",
+      "type": "reason_month",
+      "relevant": 3,
+      "scores": {
+        "mrr": 0.1111111111111111,
+        "precision": 0.1,
+        "recall": 0.3333333333333333
+      },
+      "top": [
+        "conv_telecom_000082",
+        "conv_telecom_000108",
+        "conv_telecom_000101",
+        "conv_telecom_000129",
+        "conv_telecom_000075",
+        "conv_telecom_000104",
+        "conv_telecom_000134",
+        "conv_telecom_000096",
+        "conv_telecom_000069",
+        "conv_telecom_000142"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-08",
+      "type": "reason_month",
+      "relevant": 7,
+      "scores": {
+        "mrr": 0.2,
+        "precision": 0.3,
+        "recall": 0.42857142857142855
+      },
+      "top": [
+        "conv_telecom_000222",
+        "conv_telecom_000166",
+        "conv_telecom_000160",
+        "conv_telecom_000173",
+        "conv_telecom_000148",
+        "conv_telecom_000229",
+        "conv_telecom_000177",
+        "conv_telecom_000211",
+        "conv_telecom_000213",
+        "conv_telecom_000168"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-09",
+      "type": "reason_month",
+      "relevant": 6,
+      "scores": {
+        "mrr": 0.125,
+        "precision": 0.1,
+        "recall": 0.16666666666666666
+      },
+      "top": [
+        "conv_telecom_000297",
+        "conv_telecom_000278",
+        "conv_telecom_000335",
+        "conv_telecom_000303",
+        "conv_telecom_000237",
+        "conv_telecom_000262",
+        "conv_telecom_000247",
+        "conv_telecom_000314",
+        "conv_telecom_000315",
+        "conv_telecom_000267"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-10",
+      "type": "reason_month",
+      "relevant": 7,
+      "scores": {
+        "mrr": 0.1111111111111111,
+        "precision": 0.2,
+        "recall": 0.2857142857142857
+      },
+      "top": [
+        "conv_telecom_000342",
+        "conv_telecom_000366",
+        "conv_telecom_000364",
+        "conv_telecom_000370",
+        "conv_telecom_000373",
+        "conv_telecom_000368",
+        "conv_telecom_000338",
+        "conv_telecom_000354",
+        "conv_telecom_000424",
+        "conv_telecom_000361"
+      ]
+    },
+    {
+      "id": "reason_month:roaming:2026-11",
+      "type": "reason_month",
+      "relevant": 7,
+      "scores": {
+        "mrr": 0.5,
+        "precision": 0.6,
+        "recall": 0.8571428571428571
+      },
+      "top": [
+        "conv_telecom_000480",
+        "conv_telecom_000495",
+        "conv_telecom_000488",
+        "conv_telecom_000471",
+        "conv_telecom_000492",
+        "conv_telecom_000446",
+        "conv_telecom_000426",
+        "conv_telecom_000456",
+        "conv_telecom_000467",
+        "conv_telecom_000481"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-06",
+      "type": "reason_month",
+      "relevant": 21,
+      "scores": {
+        "mrr": 0.3333333333333333,
+        "precision": 0.6,
+        "recall": 0.6
+      },
+      "top": [
+        "conv_telecom_000037",
+        "conv_telecom_000067",
+        "conv_telecom_000044",
+        "conv_telecom_000031",
+        "conv_telecom_000017",
+        "conv_telecom_000063",
+        "conv_telecom_000049",
+        "conv_telecom_000009",
+        "conv_telecom_000016",
+        "conv_telecom_000034"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-07",
+      "type": "reason_month",
+      "relevant": 22,
+      "scores": {
+        "mrr": 0.5,
+        "precision": 0.3,
+        "recall": 0.3
+      },
+      "top": [
+        "conv_telecom_000082",
+        "conv_telecom_000083",
+        "conv_telecom_000108",
+        "conv_telecom_000103",
+        "conv_telecom_000101",
+        "conv_telecom_000129",
+        "conv_telecom_000118",
+        "conv_telecom_000075",
+        "conv_telecom_000104",
+        "conv_telecom_000134"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-08",
+      "type": "reason_month",
+      "relevant": 28,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.7,
+        "recall": 0.7
+      },
+      "top": [
+        "conv_telecom_000187",
+        "conv_telecom_000230",
+        "conv_telecom_000164",
+        "conv_telecom_000232",
+        "conv_telecom_000222",
+        "conv_telecom_000156",
+        "conv_telecom_000176",
+        "conv_telecom_000166",
+        "conv_telecom_000160",
+        "conv_telecom_000155"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-09",
+      "type": "reason_month",
+      "relevant": 16,
+      "scores": {
+        "mrr": 0.5,
+        "precision": 0.1,
+        "recall": 0.1
+      },
+      "top": [
+        "conv_telecom_000297",
+        "conv_telecom_000264",
+        "conv_telecom_000278",
+        "conv_telecom_000335",
+        "conv_telecom_000274",
+        "conv_telecom_000303",
+        "conv_telecom_000237",
+        "conv_telecom_000262",
+        "conv_telecom_000247",
+        "conv_telecom_000315"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-10",
+      "type": "reason_month",
+      "relevant": 34,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.9,
+        "recall": 0.9
+      },
+      "top": [
+        "conv_telecom_000364",
+        "conv_telecom_000373",
+        "conv_telecom_000368",
+        "conv_telecom_000347",
+        "conv_telecom_000344",
+        "conv_telecom_000342",
+        "conv_telecom_000377",
+        "conv_telecom_000366",
+        "conv_telecom_000345",
+        "conv_telecom_000391"
+      ]
+    },
+    {
+      "id": "reason_month:technical_issue:2026-11",
+      "type": "reason_month",
+      "relevant": 24,
+      "scores": {
+        "mrr": 0.5,
+        "precision": 0.7,
+        "recall": 0.7
+      },
+      "top": [
+        "conv_telecom_000480",
+        "conv_telecom_000478",
+        "conv_telecom_000430",
+        "conv_telecom_000486",
+        "conv_telecom_000441",
+        "conv_telecom_000488",
+        "conv_telecom_000498",
+        "conv_telecom_000497",
+        "conv_telecom_000492",
+        "conv_telecom_000474"
+      ]
+    },
+    {
+      "id": "competitor:NovaTel",
+      "type": "competitor",
+      "relevant": 24,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 0.5
+      },
+      "top": [
+        "conv_telecom_000037",
+        "conv_telecom_000386",
+        "conv_telecom_000488",
+        "conv_telecom_000237",
+        "conv_telecom_000067",
+        "conv_telecom_000101",
+        "conv_telecom_000129",
+        "conv_telecom_000062",
+        "conv_telecom_000160",
+        "conv_telecom_000315"
+      ]
+    },
+    {
+      "id": "competitor:Orbit Wireless",
+      "type": "competitor",
+      "relevant": 26,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000278",
+        "conv_telecom_000227",
+        "conv_telecom_000323",
+        "conv_telecom_000067",
+        "conv_telecom_000247",
+        "conv_telecom_000165",
+        "conv_telecom_000064",
+        "conv_telecom_000418",
+        "conv_telecom_000482",
+        "conv_telecom_000011"
+      ]
+    },
+    {
+      "id": "competitor:SkyLink Mobile",
+      "type": "competitor",
+      "relevant": 18,
+      "scores": {
+        "mrr": 0.125,
+        "precision": 0.3,
+        "recall": 0.3
+      },
+      "top": [
+        "conv_telecom_000101",
+        "conv_telecom_000062",
+        "conv_telecom_000160",
+        "conv_telecom_000173",
+        "conv_telecom_000492",
+        "conv_telecom_000354",
+        "conv_telecom_000213",
+        "conv_telecom_000166",
+        "conv_telecom_000237",
+        "conv_telecom_000247"
+      ]
+    },
+    {
+      "id": "event:network_outage_2026_10",
+      "type": "event",
+      "relevant": 9,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.3,
+        "recall": 0.3333333333333333
+      },
+      "top": [
+        "conv_telecom_000372",
+        "conv_telecom_000377",
+        "conv_telecom_000398",
+        "conv_telecom_000416",
+        "conv_telecom_000494",
+        "conv_telecom_000407",
+        "conv_telecom_000408",
+        "conv_telecom_000422",
+        "conv_telecom_000378",
+        "conv_telecom_000459"
+      ]
+    },
+    {
+      "id": "event:price_increase_2026_09",
+      "type": "event",
+      "relevant": 54,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 0.8
+      },
+      "top": [
+        "conv_telecom_000328",
+        "conv_telecom_000316",
+        "conv_telecom_000273",
+        "conv_telecom_000302",
+        "conv_telecom_000252",
+        "conv_telecom_000295",
+        "conv_telecom_000279",
+        "conv_telecom_000238",
+        "conv_telecom_000399",
+        "conv_telecom_000382"
+      ]
+    },
+    {
+      "id": "churn_month:2026-06",
+      "type": "churn_month",
+      "relevant": 5,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.5,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000031",
+        "conv_telecom_000063",
+        "conv_telecom_000037",
+        "conv_telecom_000067",
+        "conv_telecom_000038",
+        "conv_telecom_000068",
+        "conv_telecom_000035",
+        "conv_telecom_000012",
+        "conv_telecom_000054",
+        "conv_telecom_000051"
+      ]
+    },
+    {
+      "id": "churn_month:2026-07",
+      "type": "churn_month",
+      "relevant": 4,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.4,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000082",
+        "conv_telecom_000122",
+        "conv_telecom_000100",
+        "conv_telecom_000108",
+        "conv_telecom_000119",
+        "conv_telecom_000085",
+        "conv_telecom_000101",
+        "conv_telecom_000129",
+        "conv_telecom_000081",
+        "conv_telecom_000141"
+      ]
+    },
+    {
+      "id": "churn_month:2026-09",
+      "type": "churn_month",
+      "relevant": 10,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.8,
+        "recall": 0.8
+      },
+      "top": [
+        "conv_telecom_000278",
+        "conv_telecom_000256",
+        "conv_telecom_000335",
+        "conv_telecom_000303",
+        "conv_telecom_000262",
+        "conv_telecom_000297",
+        "conv_telecom_000308",
+        "conv_telecom_000254",
+        "conv_telecom_000334",
+        "conv_telecom_000237"
+      ]
+    },
+    {
+      "id": "churn_month:2026-10",
+      "type": "churn_month",
+      "relevant": 4,
+      "scores": {
+        "mrr": 1.0,
+        "precision": 0.4,
+        "recall": 1.0
+      },
+      "top": [
+        "conv_telecom_000342",
+        "conv_telecom_000386",
+        "conv_telecom_000360",
+        "conv_telecom_000419",
+        "conv_telecom_000351",
+        "conv_telecom_000411",
+        "conv_telecom_000417",
+        "conv_telecom_000359",
+        "conv_telecom_000338",
+        "conv_telecom_000392"
+      ]
+    }
+  ],
+  "created_at": "2026-10-28T18:49:18+00:00"
+}
