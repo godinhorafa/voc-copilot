@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction test test-unit lint format typecheck check
+.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -51,6 +51,17 @@ seed: ## Generate a dataset and ingest it into the running API: make seed INDUST
 LIMIT ?= 200
 eval-extraction: ## Score extraction against ground truth with the configured LLM: make eval-extraction LIMIT=200
 	$(UV) python -m evals.extraction_eval $(DATASET_DIR) --limit $(LIMIT)
+
+GOLDEN := evals/datasets/golden-telecom-seed42-n500.jsonl
+
+golden: ## Rebuild the retrieval golden set from the committed dataset's ground truth
+	$(UV) python -m evals.build_golden $(DATASET_DIR) --out $(GOLDEN)
+
+eval-retrieval: ## Score retrieval on the golden set (dataset must be ingested: make up && make seed-dataset)
+	$(UV) python -m evals.retrieval_eval $(GOLDEN)
+
+seed-dataset: ## Ingest the committed dataset into the running API
+	$(UV) python -m scripts.ingest $(DATASET_DIR)
 
 test: ## Run all tests (integration tests use Testcontainers)
 	$(UV) pytest
