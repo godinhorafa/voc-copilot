@@ -1,6 +1,6 @@
 """Retrieval-augmented answering with validated citations (no agent yet).
 
-Flow: embed the question -> vector search -> numbered sources -> structured
+Flow: retrieve (strategy from `Retriever`) -> numbered sources -> structured
 answer with citations -> drop citations that don't check out. If citations
 were dropped, the model gets one retry with the problems as feedback.
 """
@@ -13,9 +13,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.answering.citations import ValidCitation, check_citations
-from app.llm.base import EmbeddingProvider, LLMProvider, Message, Usage
+from app.llm.base import LLMProvider, Message, Usage
+from app.retrieval.retriever import Retriever
 from app.retrieval.types import RetrievedChunk, SearchFilters
-from app.retrieval.vector import vector_search
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "answer.md"
 NO_EVIDENCE = "I couldn't find conversations relevant to this question with the given filters."
@@ -54,28 +54,22 @@ class RagAnswerer:
     def __init__(
         self,
         llm: LLMProvider,
-        embeddings: EmbeddingProvider,
+        retriever: Retriever,
         *,
         k: int = 8,
         max_attempts: int = 2,
     ) -> None:
         self._llm = llm
-        self._embeddings = embeddings
+        self._retriever = retriever
         self._k = k
         self._max_attempts = max_attempts
         self._system = PROMPT_PATH.read_text()
-
-    async def retrieve(
-        self, session: AsyncSession, question: str, filters: SearchFilters
-    ) -> list[RetrievedChunk]:
-        [query] = await self._embeddings.embed([question])
-        return await vector_search(session, query, k=self._k, filters=filters)
 
     async def answer(
         self, session: AsyncSession, question: str, filters: SearchFilters
     ) -> RagAnswer:
         started = time.perf_counter()
-        sources = await self.retrieve(session, question, filters)
+        sources = await self._retriever.search(session, question, k=self._k, filters=filters)
         if not sources:
             return RagAnswer(answer=NO_EVIDENCE, citations=[], sources=[])
 

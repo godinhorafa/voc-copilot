@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     embedding_dim: int = Field(default=1536, gt=0)
     embedding_batch_size: int = Field(default=64, gt=0)
 
+    # See ADR 0003 and the README results table. Hybrid is the default because
+    # keyword-only search returns nothing when a question shares no terms with
+    # the conversations, even though it scores higher on the lexical golden set.
+    retrieval_strategy: Literal["vector", "keyword", "hybrid"] = "hybrid"
+    retrieval_rerank: bool = False
+    retrieval_candidates: int = Field(default=30, gt=0)
+
     chunk_max_words: int = Field(default=160, gt=0)
     chunk_overlap_turns: int = Field(default=1, ge=0)
     ingestion_max_tries: int = Field(default=4, ge=1)

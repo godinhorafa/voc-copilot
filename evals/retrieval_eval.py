@@ -25,13 +25,12 @@ from app.core.config import get_settings
 from app.db.models import Conversation
 from app.db.session import create_engine, create_sessionmaker
 from app.llm.base import EmbeddingProvider
-from app.llm.factory import build_embedding_provider
+from app.llm.factory import build_embedding_provider, build_llm_provider
+from app.retrieval.rerank import LLMReranker
+from app.retrieval.retriever import STRATEGIES, Retriever, Strategy
 from app.retrieval.types import SearchFilters, conversation_ranking
-from app.retrieval.vector import vector_search
 from evals.build_golden import GoldenQuestion
 from evals.metrics import RankingScores, mean_ranking, ranking_scores
-
-STRATEGY = "vector"
 
 
 @dataclass(frozen=True)
@@ -85,6 +84,7 @@ async def evaluate(
     golden_path: Path,
     *,
     sessionmaker: async_sessionmaker[AsyncSession],
+    retriever: Retriever,
     embeddings: EmbeddingProvider,
     k: int,
 ) -> RetrievalResult:
@@ -95,7 +95,9 @@ async def evaluate(
         filters = SearchFilters(industry=q.industry, start=_dt(q.start), end=_dt(q.end))
         async with sessionmaker() as session:
             # Over-fetch chunks so k distinct conversations survive deduplication.
-            chunks = await vector_search(session, vector, k=k * 3, filters=filters)
+            chunks = await retriever.search(
+                session, q.question, k=k * 3, filters=filters, query_embedding=vector
+            )
         ranked = conversation_ranking(chunks)[:k]
         relevant = set(q.relevant)
         results.append(
@@ -113,7 +115,7 @@ async def evaluate(
         grouped[r.type].append(r.scores)
     return RetrievalResult(
         golden=golden_path.stem,
-        strategy=STRATEGY,
+        strategy=retriever.name,
         embedding_model=embeddings.model,
         k=k,
         overall=mean_ranking([r.scores for r in results]),
@@ -161,7 +163,7 @@ def write_reports(result: RetrievalResult, out: Path) -> Path:
     return out / f"{stem}.md"
 
 
-async def _run(golden: Path, k: int, out: Path) -> int:
+async def _run(golden: Path, k: int, out: Path, strategy: Strategy, rerank: bool) -> int:
     settings = get_settings()
     engine = create_engine(settings)
     sessionmaker = create_sessionmaker(engine)
@@ -174,8 +176,11 @@ async def _run(golden: Path, k: int, out: Path) -> int:
                 file=sys.stderr,
             )
             return 2
+        embeddings = build_embedding_provider(settings)
+        reranker = LLMReranker(build_llm_provider(settings)) if rerank else None
+        retriever = Retriever(embeddings, strategy=strategy, reranker=reranker)
         result = await evaluate(
-            golden, sessionmaker=sessionmaker, embeddings=build_embedding_provider(settings), k=k
+            golden, sessionmaker=sessionmaker, retriever=retriever, embeddings=embeddings, k=k
         )
     finally:
         await engine.dispose()
@@ -189,9 +194,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Score retrieval on a golden set.")
     parser.add_argument("golden", type=Path)
     parser.add_argument("--k", type=int, default=10)
+    parser.add_argument("--strategy", choices=STRATEGIES, default="vector")
+    parser.add_argument("--rerank", action="store_true", help="rerank with the configured LLM")
     parser.add_argument("--out", type=Path, default=Path("evals/reports"))
     args = parser.parse_args(argv)
-    return asyncio.run(_run(args.golden, args.k, args.out))
+    strategy: Strategy = args.strategy
+    return asyncio.run(_run(args.golden, args.k, args.out, strategy, args.rerank))
 
 
 if __name__ == "__main__":

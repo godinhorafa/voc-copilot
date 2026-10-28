@@ -57,8 +57,8 @@ GOLDEN := evals/datasets/golden-telecom-seed42-n500.jsonl
 golden: ## Rebuild the retrieval golden set from the committed dataset's ground truth
 	$(UV) python -m evals.build_golden $(DATASET_DIR) --out $(GOLDEN)
 
-eval-retrieval: ## Score retrieval on the golden set (dataset must be ingested: make up && make seed-dataset)
-	$(UV) python -m evals.retrieval_eval $(GOLDEN)
+eval-retrieval: ## Score retrieval on the golden set (needs make up && make seed-dataset); ARGS="--strategy hybrid --rerank"
+	$(UV) python -m evals.retrieval_eval $(GOLDEN) $(ARGS)
 
 seed-dataset: ## Ingest the committed dataset into the running API
 	$(UV) python -m scripts.ingest $(DATASET_DIR)
