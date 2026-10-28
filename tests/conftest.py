@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import Settings
 from app.db.session import create_sessionmaker
-from app.llm.fake import FakeEmbeddingProvider
+from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider
 from app.main import create_app
 
 PGVECTOR_IMAGE = "pgvector/pgvector:pg16"
@@ -129,5 +129,6 @@ def worker_ctx(settings: Settings, db: async_sessionmaker[AsyncSession]) -> dict
         "settings": settings,
         "sessionmaker": db,
         "embeddings": FakeEmbeddingProvider(dim=settings.embedding_dim),
+        "llm": FakeLLMProvider.permissive(),
         "job_try": 1,
     }

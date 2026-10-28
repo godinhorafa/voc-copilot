@@ -1,8 +1,9 @@
-"""Read side of ingestion: turn stored conversations into searchable chunks.
+"""Read side of ingestion: chunk, embed, and extract insights.
 
-`process_conversation` is idempotent. It skips conversations whose current
-content was already processed and replaces any previous chunks, so a job can be
-retried from the start and will resume where it stopped.
+`process_conversation` is idempotent. Each step records the content hash it
+completed for and is skipped when already done; chunks and insights are
+replaced, never duplicated. A job can be retried from the start and resumes
+where it stopped.
 """
 
 import uuid
@@ -12,11 +13,13 @@ from enum import StrEnum
 
 import structlog
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Chunk, Conversation, Job, JobStatus
+from app.db.models import Chunk, Conversation, Insight, Job, JobStatus
 from app.ingestion.chunking import chunk_turns
+from app.ingestion.extraction import InsightExtractor, extractor_version
 from app.llm.base import EmbeddingProvider
 
 logger = structlog.get_logger(__name__)
@@ -45,15 +48,71 @@ async def _embed(
     return vectors
 
 
+async def _chunk_and_embed(
+    session: AsyncSession,
+    conv: Conversation,
+    embeddings: EmbeddingProvider,
+    config: PipelineConfig,
+) -> None:
+    specs = chunk_turns(
+        conv.turns,
+        max_words=config.chunk_max_words,
+        overlap_turns=config.chunk_overlap_turns,
+    )
+    vectors = await _embed(embeddings, [s.text for s in specs], config.embedding_batch_size)
+    await session.execute(delete(Chunk).where(Chunk.conversation_id == conv.id))
+    session.add_all(
+        Chunk(
+            conversation_id=conv.id,
+            turn_start=spec.turn_start,
+            turn_end=spec.turn_end,
+            text=spec.text,
+            embedding=vector,
+            embedding_model=embeddings.model,
+        )
+        for spec, vector in zip(specs, vectors, strict=True)
+    )
+
+
+async def _extract(
+    session: AsyncSession, conv: Conversation, extractor: InsightExtractor, content_hash: str
+) -> None:
+    result = await extractor.extract(
+        conv.industry, conv.channel, [(t.speaker, t.text) for t in conv.turns]
+    )
+    values = {
+        **result.fields.model_dump(),
+        "content_hash": content_hash,
+        "extractor_version": result.version,
+        "model": result.model,
+        "input_tokens": result.usage.input_tokens,
+        "output_tokens": result.usage.output_tokens,
+    }
+    stmt = insert(Insight).values(conversation_id=conv.id, **values)
+    await session.execute(
+        stmt.on_conflict_do_update(
+            index_elements=[Insight.conversation_id], set_=values | {"created_at": func.now()}
+        )
+    )
+
+
 async def process_conversation(
     sessionmaker: async_sessionmaker[AsyncSession],
     embeddings: EmbeddingProvider,
+    extractor: InsightExtractor,
     conversation_id: uuid.UUID,
     config: PipelineConfig,
 ) -> Outcome:
+    """Run each step that is not yet done for the current content.
+
+    Steps commit separately, so a failed extraction keeps the chunks and a
+    retry only redoes what is missing.
+    """
     async with sessionmaker() as session:
         conv = await session.get(
-            Conversation, conversation_id, options=[selectinload(Conversation.turns)]
+            Conversation,
+            conversation_id,
+            options=[selectinload(Conversation.turns), selectinload(Conversation.insight)],
         )
         if conv is None or conv.is_processed:
             return Outcome.SKIPPED
@@ -61,25 +120,19 @@ async def process_conversation(
         # hash and leaves this conversation unprocessed for the next job.
         content_hash = conv.content_hash
 
-        specs = chunk_turns(
-            conv.turns,
-            max_words=config.chunk_max_words,
-            overlap_turns=config.chunk_overlap_turns,
-        )
-        vectors = await _embed(embeddings, [s.text for s in specs], config.embedding_batch_size)
+        if conv.chunked_hash != content_hash:
+            await _chunk_and_embed(session, conv, embeddings, config)
+            conv.chunked_hash = content_hash
+            await session.commit()
 
-        await session.execute(delete(Chunk).where(Chunk.conversation_id == conv.id))
-        session.add_all(
-            Chunk(
-                conversation_id=conv.id,
-                turn_start=spec.turn_start,
-                turn_end=spec.turn_end,
-                text=spec.text,
-                embedding=vector,
-                embedding_model=embeddings.model,
-            )
-            for spec, vector in zip(specs, vectors, strict=True)
-        )
+        insight = conv.insight
+        if (
+            insight is None
+            or insight.content_hash != content_hash
+            or insight.extractor_version != extractor_version()
+        ):
+            await _extract(session, conv, extractor, content_hash)
+
         conv.processed_hash = content_hash
         conv.processing_error = None
         await session.commit()

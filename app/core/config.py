@@ -8,7 +8,8 @@ LLMProviderName = Literal["openai", "azure_openai", "ollama", "fake"]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Empty values in .env (e.g. `OPENAI_API_KEY=`) count as unset.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True)
 
     app_name: str = "voc-copilot"
     environment: Literal["local", "test", "production"] = "local"
@@ -23,6 +24,10 @@ class Settings(BaseSettings):
 
     llm_provider: LLMProviderName = "fake"
     llm_model: str = "gpt-4o-mini"
+    llm_timeout_s: float = Field(default=60.0, gt=0)
+    llm_max_retries: int = Field(default=3, ge=0)
+    # Defaults to llm_provider; set it to mix, e.g. Ollama chat + OpenAI embeddings.
+    embedding_provider: LLMProviderName | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = Field(default=1536, gt=0)
     embedding_batch_size: int = Field(default=64, gt=0)
@@ -41,9 +46,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _check_provider_credentials(self) -> Self:
         # Fail at startup, not on the first request that happens to call the LLM.
-        if self.llm_provider == "openai" and not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
-        if self.llm_provider == "azure_openai":
+        providers = {self.llm_provider, self.embedding_provider or self.llm_provider}
+        if "openai" in providers and not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required when using the openai provider")
+        if "azure_openai" in providers:
             missing = [
                 name
                 for name, value in {
@@ -54,7 +60,7 @@ class Settings(BaseSettings):
                 if not value
             ]
             if missing:
-                raise ValueError(f"Missing settings for LLM_PROVIDER=azure_openai: {missing}")
+                raise ValueError(f"Missing settings for the azure_openai provider: {missing}")
         if self.environment == "production" and self.api_key.get_secret_value() == "change-me":
             raise ValueError("API_KEY must be changed in production")
         return self

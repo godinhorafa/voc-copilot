@@ -77,6 +77,20 @@ class TurnOut(BaseModel):
     offset_s: int | None
 
 
+class InsightOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    contact_reason: str
+    sentiment: Literal["negative", "neutral", "positive"]
+    resolved: bool
+    churn_risk: Literal["low", "medium", "high"]
+    competitors: list[str]
+    summary: str
+    extractor_version: str
+    model: str
+    created_at: datetime
+
+
 class ConversationOut(BaseModel):
     id: uuid.UUID
     external_id: str
@@ -87,4 +101,5 @@ class ConversationOut(BaseModel):
     status: ProcessingStatus
     processing_error: str | None
     chunk_count: int
+    insight: InsightOut | None = Field(description="Null until extraction has run")
     turns: list[TurnOut]

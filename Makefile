@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev worker migrate revision generate dataset seed test test-unit lint format typecheck check
+.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -47,6 +47,10 @@ dataset: ## Regenerate the committed dataset (run after changing scenarios.yaml 
 seed: ## Generate a dataset and ingest it into the running API: make seed INDUSTRY=telecom N=500
 	$(MAKE) generate INDUSTRY=$(INDUSTRY) N=$(N) SEED=$(SEED) RENDERER=$(RENDERER)
 	$(UV) python -m scripts.ingest data/$(INDUSTRY)-seed$(SEED)-n$(N)
+
+LIMIT ?= 200
+eval-extraction: ## Score extraction against ground truth with the configured LLM: make eval-extraction LIMIT=200
+	$(UV) python -m evals.extraction_eval $(DATASET_DIR) --limit $(LIMIT)
 
 test: ## Run all tests (integration tests use Testcontainers)
 	$(UV) pytest

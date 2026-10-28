@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     Computed,
     Date,
     DateTime,
@@ -64,7 +65,9 @@ class Conversation(Base):
     channel: Mapped[str] = mapped_column(String(16))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     content_hash: Mapped[str] = mapped_column(String(64))
-    processed_hash: Mapped[str | None] = mapped_column(String(64))
+    # Each pipeline step records the content hash it last completed for.
+    chunked_hash: Mapped[str | None] = mapped_column(String(64))
+    processed_hash: Mapped[str | None] = mapped_column(String(64))  # all steps done
     processing_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -78,6 +81,9 @@ class Conversation(Base):
         passive_deletes=True,
     )
     chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", passive_deletes=True
+    )
+    insight: Mapped["Insight | None"] = relationship(
         back_populates="conversation", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -126,6 +132,31 @@ class Chunk(Base):
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="chunks")
+
+
+class Insight(Base):
+    """LLM-extracted structured view of one conversation."""
+
+    __tablename__ = "insights"
+    __table_args__ = (Index("ix_insights_contact_reason", "contact_reason"),)
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    contact_reason: Mapped[str] = mapped_column(String(64))
+    sentiment: Mapped[str] = mapped_column(String(16))
+    resolved: Mapped[bool] = mapped_column(Boolean)
+    churn_risk: Mapped[str] = mapped_column(String(16))
+    competitors: Mapped[list[str]] = mapped_column(ARRAY(String(128)))
+    summary: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    extractor_version: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(128))
+    input_tokens: Mapped[int] = mapped_column(Integer)
+    output_tokens: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    conversation: Mapped[Conversation] = relationship(back_populates="insight")
 
 
 class JobStatus(enum.StrEnum):

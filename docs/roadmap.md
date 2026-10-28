@@ -28,7 +28,7 @@ Each phase is a vertical slice that ends with something runnable and, from phase
 
 ## Phase 2 – Ingestion
 
-Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real providers).
+Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real providers) ✅.
 
 ### 2a – Upload, queue, chunks, embeddings ✅
 
@@ -41,13 +41,19 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 - `make seed` (generate + ingest); worker in Compose
 - Tests: arq end to end through Redis, model/migration drift check
 
-### 2b – Extraction and providers
+### 2b – Extraction and providers ✅
 
-- `insights` table; structured extraction (contact reason, sentiment, resolution, competitors, churn risk) validated by Pydantic, with `extractor_version` and model stored
-- Real providers: OpenAI, Azure OpenAI, Ollama
-- Extraction runs in the same job, after chunking; a failed extraction does not discard chunks
+- `insights` table; structured extraction (contact reason, sentiment, resolution, competitors, churn risk, summary) with a per-industry schema where the contact reason is an enum of the taxonomy (`app/ingestion/taxonomy.yaml`)
+- Extractor version = major + hash of prompt and taxonomy, stored with the model and token usage on every insight
+- One OpenAI-compatible provider for OpenAI, Azure OpenAI and Ollama (ADR 0006); chat and embeddings can use different providers
+- Pipeline steps tracked separately (`chunked_hash`, insight `content_hash`): a failed extraction keeps the chunks; a retry only extracts
+- `make eval-extraction`: per-field accuracy and macro-F1 vs. ground truth, competitor precision/recall, majority-class baseline, Markdown + JSON report
 
-**Exit:** 500 conversations ingested; extraction F1 per field reported against ground truth.
+**Exit:** extraction eval runs end to end (verified with an oracle and with placeholder answers in tests). **Pending:** first report with a real model, which needs an API key.
+
+**Follow-ups:**
+- Re-extraction when the extractor version changes (today a version bump only applies to new or changed conversations)
+- LLM-rendered dataset for retrieval evals (from phase 1)
 
 ## Phase 3 – Minimal RAG and eval baseline
 
