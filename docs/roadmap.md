@@ -75,12 +75,16 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 
 **Pending (needs an API key):** vector/hybrid with real embeddings, rerank, and paraphrased golden questions; then accept or reject ADR 0003.
 
-## Phase 5 – Text-to-SQL
+## Phase 5 – Text-to-SQL ✅ (pending real-model accuracy)
 
-- Read-only views and a `voc_readonly` role; `statement_timeout`
-- `sql_guard` built on sqlglot: single `SELECT`, view allowlist, forced `LIMIT`, no dangerous functions
-- Adversarial tests (DDL, stacked statements, CTEs hiding base tables, `pg_sleep`, catalog access)
-- SQL accuracy eval comparing result sets
+- `analytics` schema with three views (conversations + insights, customers, competitor mentions) and a `voc_analytics` role that can only read them
+- `sql_guard` on sqlglot: one SELECT, no DML/DDL anywhere (including CTEs), allowed views and functions only, no `INTO` or row locks, forced `LIMIT`, SQL regenerated without comments
+- Executor: READ ONLY transaction, `statement_timeout`, always rolled back, runs as the analytics role; `ANALYTICS_DATABASE_URL` for a dedicated least-privilege login in production
+- `POST /v1/metrics`: question → SQL → rows, with one repair round on guard or database errors
+- Adversarial tests per layer, with the other layers bypassed (ADR 0007)
+- `make eval-sql`: execution accuracy on 18 golden questions; verified with an oracle (1.0) and with swapped answers (< 0.3)
+
+**Pending (needs an API key):** first accuracy report with a real model.
 
 ## Phase 6 – Agent
 
