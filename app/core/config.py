@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     retrieval_rerank: bool = False
     retrieval_candidates: int = Field(default=30, gt=0)
 
+    # Text-to-SQL. In production, connect as a login role that is only a member of
+    # voc_analytics (see ADR 0007); unset, the main connection switches role per query.
+    analytics_database_url: PostgresDsn | None = None
+    # Limits (the database enforces the timeout).
+    sql_max_rows: int = Field(default=200, gt=0, le=10_000)
+    sql_timeout_ms: int = Field(default=5000, gt=0)
+
     chunk_max_words: int = Field(default=160, gt=0)
     chunk_overlap_turns: int = Field(default=1, ge=0)
     ingestion_max_tries: int = Field(default=4, ge=1)

@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import Settings
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
+def create_engine(settings: Settings, *, url: str | None = None) -> AsyncEngine:
     return create_async_engine(
-        str(settings.database_url),
+        url or str(settings.database_url),
         pool_size=settings.db_pool_size,
         pool_pre_ping=True,
     )

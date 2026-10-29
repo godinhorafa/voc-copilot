@@ -35,6 +35,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redis = ArqRedis(ConnectionPool.from_url(str(settings.redis_url)))
         app.state.settings = settings
         app.state.engine = engine
+        # Text-to-SQL uses a least-privilege connection when one is configured.
+        analytics_engine = (
+            create_engine(settings, url=str(settings.analytics_database_url))
+            if settings.analytics_database_url
+            else None
+        )
+        app.state.analytics_engine = analytics_engine
         app.state.sessionmaker = create_sessionmaker(engine)
         app.state.redis = redis
         app.state.queue = ArqJobQueue(redis)
@@ -45,6 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             yield
         finally:
             await redis.aclose()
+            if analytics_engine is not None:
+                await analytics_engine.dispose()
             await engine.dispose()
             logger.info("shutdown")
 
