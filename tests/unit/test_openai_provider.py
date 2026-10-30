@@ -9,7 +9,7 @@ import pytest
 from openai import AsyncAzureOpenAI, AsyncOpenAI, DefaultAsyncHttpx2Client
 from pydantic import BaseModel
 
-from app.llm.base import Message
+from app.llm.base import Message, ToolCall, ToolSpec
 from app.llm.openai_compatible import (
     LLMRefusalError,
     OpenAICompatibleEmbeddings,
@@ -170,3 +170,57 @@ async def test_azure_uses_deployment_route_and_api_version() -> None:
     assert url.path == "/openai/deployments/my-deployment/chat/completions"
     assert url.params["api-version"] == "2024-10-21"
     assert rec.requests[0].headers["api-key"] == "az-key"
+
+
+class SearchArgs(BaseModel):
+    query: str
+    industry: str | None
+
+
+def _tool_chat(calls: list[dict[str, Any]]) -> dict[str, Any]:
+    body = _chat(None)
+    body["choices"][0]["message"]["tool_calls"] = calls
+    body["choices"][0]["finish_reason"] = "tool_calls"
+    return body
+
+
+async def test_tool_calls_round_trip() -> None:
+    call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "search", "arguments": '{"query": "price", "industry": null}'},
+    }
+    rec = Recorder(httpx.Response(200, json=_tool_chat([call])))
+    llm = OpenAICompatibleLLM(_client(rec), "gpt-test")
+    history = [
+        *MSGS,
+        Message(
+            role="assistant", tool_calls=[ToolCall(id="call_0", name="search", arguments="{}")]
+        ),
+        Message(role="tool", tool_call_id="call_0", content="[S1] ..."),
+    ]
+
+    turn = await llm.complete_with_tools(
+        history,
+        [ToolSpec(name="search", description="Find excerpts", args_model=SearchArgs)],
+        tool_choice="required",
+    )
+
+    assert turn.text is None
+    assert turn.tool_calls == [
+        ToolCall(id="call_1", name="search", arguments='{"query": "price", "industry": null}')
+    ]
+    assert turn.usage.input_tokens == 12
+    body = rec.body()
+    assert body["tool_choice"] == "required"
+    tool = body["tools"][0]["function"]
+    assert (tool["name"], tool["strict"]) == ("search", True)
+    assert tool["parameters"]["additionalProperties"] is False
+    assert body["messages"][2] == {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {"id": "call_0", "type": "function", "function": {"name": "search", "arguments": "{}"}}
+        ],
+    }
+    assert body["messages"][3] == {"role": "tool", "tool_call_id": "call_0", "content": "[S1] ..."}

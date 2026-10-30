@@ -7,6 +7,7 @@ retrieval code without a network call.
 """
 
 import hashlib
+import json
 import math
 import re
 import types
@@ -17,13 +18,36 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.llm.base import Completion, Message, StructuredCompletion, Usage
+from app.llm.base import (
+    Completion,
+    Message,
+    StructuredCompletion,
+    ToolCall,
+    ToolChoice,
+    ToolSpec,
+    ToolTurn,
+    Usage,
+)
 
 FAKE_MODEL = "fake-llm"
 FAKE_EMBEDDING_MODEL = "fake-embedding"
 _TOKEN = re.compile(r"\w+", re.UNICODE)
 
 StructuredFactory = Callable[[type[BaseModel], Sequence[Message]], BaseModel]
+ToolScript = Callable[[Sequence[Message], Sequence[ToolSpec]], ToolTurn]
+FINAL_TOOL = "final_answer"
+
+
+def tool_turn(*calls: tuple[str, dict[str, Any]], text: str | None = None) -> ToolTurn:
+    """Build a scripted turn: `tool_turn(("search_conversations", {"query": "..."}))`."""
+    return ToolTurn(
+        text=text,
+        tool_calls=[
+            ToolCall(id=f"call_{i}", name=name, arguments=json.dumps(args))
+            for i, (name, args) in enumerate(calls)
+        ],
+        model=FAKE_MODEL,
+    )
 
 
 def _count_tokens(text: str) -> int:
@@ -57,16 +81,23 @@ class FakeLLMProvider:
         *,
         default: str = "fake response",
         structured: StructuredFactory | None = None,
+        tool_turns: Sequence[ToolTurn] = (),
+        tool_script: ToolScript | None = None,
     ) -> None:
         self._responses: deque[str] = deque(responses)
         self._default = default
         self._structured = structured
+        self._tool_turns: deque[ToolTurn] = deque(tool_turns)
+        self._tool_script = tool_script
         self.calls: list[list[Message]] = []
+        self.tool_choices: list[ToolChoice] = []
+        self.tools_offered: list[list[str]] = []
 
     @classmethod
     def permissive(cls) -> "FakeLLMProvider":
-        """Answers any structured request with placeholder values (offline dev mode)."""
-        return cls(structured=lambda schema, _: placeholder_instance(schema))
+        """Offline dev mode: placeholder structured values; with tools, finish at once
+        through `final_answer` when it is offered."""
+        return cls(structured=lambda schema, _: placeholder_instance(schema), tool_script=_finish)
 
     def queue(self, *responses: str) -> None:
         self._responses.extend(responses)
@@ -111,6 +142,38 @@ class FakeLLMProvider:
             model=FAKE_MODEL,
             usage=self._usage(messages, value.model_dump_json()),
         )
+
+    async def complete_with_tools(
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
+        temperature: float = 0.0,
+    ) -> ToolTurn:
+        self.calls.append(list(messages))
+        self.tool_choices.append(tool_choice)
+        self.tools_offered.append([t.name for t in tools])
+        if self._tool_turns:
+            turn = self._tool_turns.popleft()
+        elif self._tool_script is not None:
+            turn = self._tool_script(messages, tools)
+        else:
+            raise LookupError("FakeLLMProvider has no scripted tool turn; queue one")
+        output = turn.text or "".join(c.arguments for c in turn.tool_calls)
+        return turn.model_copy(update={"usage": self._usage(messages, output)})
+
+
+def _finish(messages: Sequence[Message], tools: Sequence[ToolSpec]) -> ToolTurn:
+    final = next((t for t in tools if t.name == FINAL_TOOL), None)
+    if final is None:
+        return ToolTurn(text="fake response", tool_calls=[], model=FAKE_MODEL)
+    args = placeholder_instance(final.args_model).model_dump_json()
+    return ToolTurn(
+        text=None,
+        tool_calls=[ToolCall(id="call_final", name=FINAL_TOOL, arguments=args)],
+        model=FAKE_MODEL,
+    )
 
 
 class FakeEmbeddingProvider:
