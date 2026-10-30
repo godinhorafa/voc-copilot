@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     retrieval_rerank: bool = False
     retrieval_candidates: int = Field(default=30, gt=0)
 
+    # Agent loop budget: tool-calling turns before only final_answer is offered.
+    agent_max_steps: int = Field(default=6, ge=1, le=20)
+    # LLM-as-judge for evals; a different model than LLM_MODEL limits self-preference.
+    judge_model: str = "gpt-4o"
+
     # Text-to-SQL. In production, connect as a login role that is only a member of
     # voc_analytics (see ADR 0007); unset, the main connection switches role per query.
     analytics_database_url: PostgresDsn | None = None
