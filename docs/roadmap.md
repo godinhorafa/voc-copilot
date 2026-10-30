@@ -86,11 +86,14 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 
 **Pending (needs an API key):** first accuracy report with a real model.
 
-## Phase 6 – Agent
+## Phase 6 – Agent ✅ (pending real-model evals)
 
-- Explicit tool-calling loop with iteration and token budgets (ADR 0002)
-- Routing between `search_conversations` and `query_metrics`
-- SSE streaming; faithfulness and relevance evals (LLM-as-judge, different model from the generator)
+- Tool calling added to the provider protocol (strict JSON schemas from Pydantic) for OpenAI-compatible providers and the fake
+- `app/agent/`: explicit loop with `search_conversations`, `query_metrics`, `final_answer`; evidence numbered across the run ([S#], [M#]); final citations and metric references verified, with one retry then drop; step budget that ends in `final_answer`; per-step trace
+- `/v1/ask` runs the agent by default (`mode: "rag"` for the plain baseline); request filters are passed as scope; `?stream=true` streams `tool_start` / `tool_end` / `answer` events (progress, not tokens: the answer arrives through a tool)
+- `make eval-agent`: routing accuracy, over-calling, citation validity, and faithfulness by LLM-as-judge with `JUDGE_MODEL` (18 questions: metrics-only, search-only, both)
+
+**Pending (needs an API key):** first agent report with a real model and judge.
 
 ## Phase 7 – Observability and cost
 
