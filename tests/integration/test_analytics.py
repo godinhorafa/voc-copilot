@@ -125,8 +125,13 @@ async def test_driver_refuses_multiple_statements(engine: AsyncEngine) -> None:
         )
 
 
-async def test_dedicated_login_cannot_switch_role(login_engine: AsyncEngine) -> None:
-    escape = raw("SELECT set_config('role', 'postgres', true)")
+async def test_dedicated_login_cannot_switch_role(
+    engine: AsyncEngine, login_engine: AsyncEngine
+) -> None:
+    # Try to become the application's own (privileged) user, whatever it is called.
+    async with engine.connect() as conn:
+        app_user = await conn.scalar(text("SELECT current_user"))
+    escape = raw(f"SELECT set_config('role', '{app_user}', true)")
     with pytest.raises(DBAPIError, match="permission denied to set role"):
         await execute(login_engine, escape, set_role=False)
 
