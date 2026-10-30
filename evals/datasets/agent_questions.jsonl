@@ -1,0 +1,18 @@
+{"id": "count_conversations", "question": "How many conversations did we have in total?", "expected_tools": ["query_metrics"]}
+{"id": "churn_by_month", "question": "How many customers churned each month?", "expected_tools": ["query_metrics"]}
+{"id": "busiest_month", "question": "Which month had the most conversations?", "expected_tools": ["query_metrics"]}
+{"id": "voice_share", "question": "What share of conversations were phone calls?", "expected_tools": ["query_metrics"]}
+{"id": "competitor_counts", "question": "Which competitor is mentioned most often?", "expected_tools": ["query_metrics"]}
+{"id": "churn_by_plan", "question": "Which plan loses the most customers?", "expected_tools": ["query_metrics"]}
+{"id": "bill_complaints", "question": "What are customers saying about their bills?", "expected_tools": ["search_conversations"]}
+{"id": "outage_examples", "question": "Show me examples of customers with no signal.", "expected_tools": ["search_conversations"]}
+{"id": "novatel_why", "question": "Why do customers bring up NovaTel?", "expected_tools": ["search_conversations"]}
+{"id": "roaming_issues", "question": "What problems do customers have when traveling abroad?", "expected_tools": ["search_conversations"]}
+{"id": "retention_offers", "question": "What offers convince customers not to cancel?", "expected_tools": ["search_conversations"]}
+{"id": "device_setup", "question": "What do customers struggle with when setting up devices?", "expected_tools": ["search_conversations"]}
+{"id": "cancellations_spike", "question": "Why did cancellations spike in September?", "expected_tools": ["query_metrics", "search_conversations"]}
+{"id": "october_outage", "question": "How big was the network outage in October and what did customers report?", "expected_tools": ["query_metrics", "search_conversations"]}
+{"id": "churned_competitors", "question": "Which competitors do churned customers mention, and what do they say about them?", "expected_tools": ["query_metrics", "search_conversations"]}
+{"id": "billing_trend", "question": "Are billing complaints growing, and what is driving them?", "expected_tools": ["query_metrics", "search_conversations"]}
+{"id": "unresolved_why", "question": "Which contact reason is most often left unresolved, and why?", "expected_tools": ["query_metrics", "search_conversations"]}
+{"id": "negative_september", "question": "How negative were conversations in September compared to August, and what were people upset about?", "expected_tools": ["query_metrics", "search_conversations"]}
