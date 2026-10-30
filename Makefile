@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset test test-unit lint format typecheck check
+.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -59,6 +59,9 @@ golden: ## Rebuild the retrieval golden set from the committed dataset's ground 
 
 eval-retrieval: ## Score retrieval on the golden set (needs make up && make seed-dataset); ARGS="--strategy hybrid --rerank"
 	$(UV) python -m evals.retrieval_eval $(GOLDEN) $(ARGS)
+
+eval-sql: ## Text-to-SQL execution accuracy (needs a real LLM and the dataset ingested)
+	$(UV) python -m evals.sql_eval evals/datasets/sql_golden.jsonl
 
 seed-dataset: ## Ingest the committed dataset into the running API
 	$(UV) python -m scripts.ingest $(DATASET_DIR)

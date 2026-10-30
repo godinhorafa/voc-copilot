@@ -20,6 +20,15 @@ def get_engine(request: Request) -> AsyncEngine:
     return engine
 
 
+def get_analytics_engine(request: Request) -> tuple[AsyncEngine, bool]:
+    """Engine for text-to-SQL and whether it must switch role per query."""
+    dedicated: AsyncEngine | None = request.app.state.analytics_engine
+    if dedicated is not None:
+        return dedicated, False
+    engine: AsyncEngine = request.app.state.engine
+    return engine, True
+
+
 def get_redis(request: Request) -> Redis:
     redis: Redis = request.app.state.redis
     return redis
@@ -42,6 +51,7 @@ def get_embeddings(request: Request) -> EmbeddingProvider:
 
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 EngineDep = Annotated[AsyncEngine, Depends(get_engine)]
+AnalyticsEngineDep = Annotated[tuple[AsyncEngine, bool], Depends(get_analytics_engine)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 LLMDep = Annotated[LLMProvider, Depends(get_llm)]
