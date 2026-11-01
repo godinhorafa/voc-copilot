@@ -59,5 +59,14 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
+  # Local trace viewer: `docker compose --profile observability up -d`, set
+  # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 in .env, open http://localhost:16686
+  jaeger:
+    image: jaegertracing/jaeger:2.5.0
+    profiles: [observability]
+    ports:
+      - "16686:16686"  # UI
+      - "4318:4318"    # OTLP over HTTP
+
 volumes:
   pgdata:

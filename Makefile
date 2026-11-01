@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent test test-unit lint format typecheck check
+.PHONY: help install up up-observability down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -13,8 +13,11 @@ install: ## Install dependencies and git hooks
 up: ## Start the full stack (runs migrations first)
 	docker compose up -d --build
 
+up-observability: ## Start the stack plus Jaeger (set OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 in .env); UI at :16686
+	docker compose --profile observability up -d --build
+
 down: ## Stop the stack
-	docker compose down
+	docker compose --profile observability down
 
 logs: ## Tail API and worker logs
 	docker compose logs -f api worker

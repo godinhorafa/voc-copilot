@@ -95,9 +95,14 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 
 **Pending (needs an API key):** first agent report with a real model and judge.
 
-## Phase 7 – Observability and cost
+## Phase 7 – Observability and cost ✅
 
-- Langfuse / OpenTelemetry spans per tool call; per-model price table; real `usage` in responses
+- OpenTelemetry: spans for requests (health excluded), `agent.run`, each `agent.tool …`, every model call (GenAI semantic conventions with token usage), and `ingestion.job`; OTLP export via the standard env vars; Jaeger under the compose `observability` profile
+- `trace_id` on every log line (with `span_id`) and in `/v1/ask` and `/v1/metrics` responses
+- Usage meter per request and per ingestion job: tokens by provider/model/kind and estimated `cost_usd` from a versioned price table (`PRICES_FILE` to override; unknown models make the total null, not 0)
+- ADR 0008
+
+Verified end to end: Jaeger received request and worker traces with nested agent, tool and model spans.
 
 ## Phase 8 – Evals in CI
 

@@ -11,5 +11,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0005 | [Idempotent ingestion with whole-job retries](0005-idempotent-ingestion-and-retries.md) | Accepted |
 | 0006 | [One OpenAI-compatible provider](0006-single-openai-compatible-provider.md) | Accepted |
 | 0007 | [Guarded text-to-SQL over read-only views](0007-guarded-text-to-sql.md) | Accepted |
+| 0008 | [OpenTelemetry tracing and a usage meter for cost](0008-opentelemetry-tracing-and-cost.md) | Accepted |
 
 Template: [`template.md`](template.md).
