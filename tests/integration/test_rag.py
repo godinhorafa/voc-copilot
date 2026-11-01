@@ -82,7 +82,9 @@ async def test_ask_returns_verified_citations(
     )
     app.state.llm = llm
 
-    response = await client.post("/v1/ask", json={"question": "Who was charged twice?", "k": 2})
+    response = await client.post(
+        "/v1/ask", json={"question": "Who was charged twice?", "k": 2, "mode": "rag"}
+    )
 
     body = response.json()
     assert response.status_code == 200
@@ -106,7 +108,9 @@ async def test_ask_drops_fabricated_citations_after_retry(
     llm = FakeLLMProvider([fabricated, fixed])
     app.state.llm = llm
 
-    body = (await client.post("/v1/ask", json={"question": "What about prices?"})).json()
+    body = (
+        await client.post("/v1/ask", json={"question": "What about prices?", "mode": "rag"})
+    ).json()
 
     assert body["answer"] == "One customer was double charged."
     assert body["dropped_citations"] == 0
@@ -114,7 +118,9 @@ async def test_ask_drops_fabricated_citations_after_retry(
     assert "could not be verified" in llm.calls[1][-1].content
 
     llm.queue(fabricated, fabricated)
-    body = (await client.post("/v1/ask", json={"question": "What about prices?"})).json()
+    body = (
+        await client.post("/v1/ask", json={"question": "What about prices?", "mode": "rag"})
+    ).json()
     assert body["citations"] == []
     assert body["dropped_citations"] == 1
 
@@ -126,7 +132,9 @@ async def test_ask_without_matching_conversations_skips_the_llm(
     llm = FakeLLMProvider()
     app.state.llm = llm
     body = (
-        await client.post("/v1/ask", json={"question": "Anything?", "industry": "ecommerce"})
+        await client.post(
+            "/v1/ask", json={"question": "Anything?", "industry": "ecommerce", "mode": "rag"}
+        )
     ).json()
     assert body["answer"] == NO_EVIDENCE
     assert body["sources_retrieved"] == 0

@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.llm.base import EmbeddingProvider, LLMProvider
@@ -34,6 +34,11 @@ def get_redis(request: Request) -> Redis:
     return redis
 
 
+def get_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
+    sessionmaker: async_sessionmaker[AsyncSession] = request.app.state.sessionmaker
+    return sessionmaker
+
+
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     async with request.app.state.sessionmaker() as session:
         yield session
@@ -54,6 +59,7 @@ EngineDep = Annotated[AsyncEngine, Depends(get_engine)]
 AnalyticsEngineDep = Annotated[tuple[AsyncEngine, bool], Depends(get_analytics_engine)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SessionmakerDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sessionmaker)]
 LLMDep = Annotated[LLMProvider, Depends(get_llm)]
 EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embeddings)]
 

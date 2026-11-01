@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql test test-unit lint format typecheck check
+.PHONY: help install up down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -62,6 +62,9 @@ eval-retrieval: ## Score retrieval on the golden set (needs make up && make seed
 
 eval-sql: ## Text-to-SQL execution accuracy (needs a real LLM and the dataset ingested)
 	$(UV) python -m evals.sql_eval evals/datasets/sql_golden.jsonl
+
+eval-agent: ## Agent routing, citation validity and (with ARGS=--judge) faithfulness; needs a real LLM
+	$(UV) python -m evals.agent_eval evals/datasets/agent_questions.jsonl $(ARGS)
 
 seed-dataset: ## Ingest the committed dataset into the running API
 	$(UV) python -m scripts.ingest $(DATASET_DIR)

@@ -14,19 +14,54 @@ and the ingestion job's retry policy takes over.
 
 from collections.abc import Sequence
 
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
+from openai import AsyncOpenAI, pydantic_function_tool
+from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import BaseModel
 
-from app.llm.base import Completion, Message, StructuredCompletion, Usage
+from app.llm.base import (
+    Completion,
+    Message,
+    StructuredCompletion,
+    ToolCall,
+    ToolChoice,
+    ToolSpec,
+    ToolTurn,
+    Usage,
+)
 
 
 class LLMRefusalError(Exception):
     """The model declined to answer or returned no parseable output."""
 
 
+def _message(m: Message) -> ChatCompletionMessageParam:
+    if m.role == "tool":
+        return {"role": "tool", "tool_call_id": m.tool_call_id or "", "content": m.content}
+    if m.role == "assistant" and m.tool_calls:
+        return {
+            "role": "assistant",
+            "content": m.content or None,
+            "tool_calls": [
+                {
+                    "id": c.id,
+                    "type": "function",
+                    "function": {"name": c.name, "arguments": c.arguments},
+                }
+                for c in m.tool_calls
+            ],
+        }
+    return {"role": m.role, "content": m.content}  # type: ignore[return-value,misc]
+
+
 def _messages(messages: Sequence[Message]) -> list[ChatCompletionMessageParam]:
-    return [{"role": m.role, "content": m.content} for m in messages]  # type: ignore[misc]
+    return [_message(m) for m in messages]
+
+
+def _tools(tools: Sequence[ToolSpec]) -> list[ChatCompletionToolParam]:
+    # Strict schemas: the model's arguments always match the tool's Pydantic model.
+    return [
+        pydantic_function_tool(t.args_model, name=t.name, description=t.description) for t in tools
+    ]
 
 
 def _usage(usage: object | None) -> Usage:
@@ -80,6 +115,34 @@ class OpenAICompatibleLLM:
             raise LLMRefusalError(message.refusal or "no structured output returned")
         return StructuredCompletion[T](
             value=message.parsed, model=response.model, usage=_usage(response.usage)
+        )
+
+    async def complete_with_tools(
+        self,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        *,
+        tool_choice: ToolChoice = "auto",
+        temperature: float = 0.0,
+    ) -> ToolTurn:
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=_messages(messages),
+            tools=_tools(tools),
+            tool_choice=tool_choice,
+            temperature=temperature,
+        )
+        message = response.choices[0].message
+        calls = [
+            ToolCall(id=c.id, name=c.function.name, arguments=c.function.arguments)
+            for c in message.tool_calls or []
+            if c.type == "function"
+        ]
+        return ToolTurn(
+            text=message.content,
+            tool_calls=calls,
+            model=response.model,
+            usage=_usage(response.usage),
         )
 
 

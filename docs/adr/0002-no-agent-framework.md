@@ -17,6 +17,15 @@ Write the tool-calling loop directly against small provider protocols (`app/llm/
 - **LlamaIndex** – strong for retrieval pipelines, but brings its own storage and query abstractions that overlap with ours.
 - **Provider SDK agents** – simple, but tie the loop to one vendor.
 
+## Implementation (phase 6)
+
+`app/agent/orchestrator.py`, about 250 lines:
+- **Turns:** each turn uses `tool_choice=required`. Tools are `search_conversations`, `query_metrics` and `final_answer`, with arguments sent as strict JSON schemas generated from Pydantic.
+- **Evidence numbering:** search results and metric results are numbered across the run ([S#], [M#]).
+- **Finishing:** `final_answer` is the only way to finish. Its citations are verified against what the run retrieved; failures go back to the model once, then are dropped and counted.
+- **Budget:** past the step budget, only `final_answer` is offered.
+- **Testing and tracing:** every branch is unit-testable with scripted turns from `FakeLLMProvider`, and each tool call is recorded in a trace returned with the answer.
+
 ## Consequences
 
 - The whole loop fits in a few hundred lines that can be read, unit-tested with `FakeLLMProvider`, and traced span by span.
