@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.usage import UsageOut
+
 
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -36,12 +38,6 @@ class Citation(BaseModel):
     excerpt: str
 
 
-class Usage(BaseModel):
-    input_tokens: int
-    output_tokens: int
-    latency_ms: int
-
-
 class MetricOut(BaseModel):
     id: str = Field(description="Reference used in the answer, e.g. M1")
     question: str
@@ -72,4 +68,7 @@ class AskResponse(BaseModel):
     sources_retrieved: int = Field(description="Distinct excerpts retrieved across searches")
     dropped_citations: int = Field(description="Citations removed because they didn't verify")
     model: str | None
-    usage: Usage
+    usage: UsageOut
+    trace_id: str | None = Field(
+        description="OpenTelemetry trace id, to find this request in traces"
+    )

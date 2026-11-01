@@ -12,9 +12,10 @@ with exponential backoff; anything that still fails surfaces as an exception
 and the ingestion job's retry policy takes over.
 """
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
+from typing import Any
 
-from openai import AsyncOpenAI, pydantic_function_tool
+from openai import AsyncOpenAI, omit, pydantic_function_tool
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import BaseModel
 
@@ -28,6 +29,8 @@ from app.llm.base import (
     ToolTurn,
     Usage,
 )
+from app.observability.tracing import llm_span, record_usage
+from app.observability.usage import Kind
 
 
 class LLMRefusalError(Exception):
@@ -73,10 +76,33 @@ def _usage(usage: object | None) -> Usage:
     )
 
 
+async def _observed[R](
+    call: Callable[[], Awaitable[R]], *, kind: Kind, provider: str, model: str
+) -> R:
+    """Run one API call inside a GenAI span and record its token usage."""
+    with llm_span(kind, provider=provider, model=model) as span:
+        response = await call()
+        usage: Any = getattr(response, "usage", None)
+        record_usage(
+            span,
+            kind=kind,
+            provider=provider,
+            model=model,
+            response_model=getattr(response, "model", None),
+            input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+            output_tokens=getattr(usage, "completion_tokens", 0) or 0,
+        )
+        return response
+
+
 class OpenAICompatibleLLM:
-    def __init__(self, client: AsyncOpenAI, model: str) -> None:
+    def __init__(self, client: AsyncOpenAI, model: str, *, provider: str = "openai") -> None:
         self._client = client
         self._model = model
+        self._provider = provider
+
+    def _observe[R](self, call: Callable[[], Awaitable[R]]) -> Awaitable[R]:
+        return _observed(call, kind="chat", provider=self._provider, model=self._model)
 
     async def complete(
         self,
@@ -85,11 +111,13 @@ class OpenAICompatibleLLM:
         temperature: float = 0.0,
         max_tokens: int | None = None,
     ) -> Completion:
-        response = await self._client.chat.completions.create(
-            model=self._model,
-            messages=_messages(messages),
-            temperature=temperature,
-            max_tokens=max_tokens,
+        response = await self._observe(
+            lambda: self._client.chat.completions.create(
+                model=self._model,
+                messages=_messages(messages),
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
         )
         text = response.choices[0].message.content
         if text is None:
@@ -104,11 +132,13 @@ class OpenAICompatibleLLM:
         temperature: float = 0.0,
     ) -> StructuredCompletion[T]:
         # parse() sends a strict JSON schema derived from `schema` and validates the reply.
-        response = await self._client.chat.completions.parse(
-            model=self._model,
-            messages=_messages(messages),
-            response_format=schema,
-            temperature=temperature,
+        response = await self._observe(
+            lambda: self._client.chat.completions.parse(
+                model=self._model,
+                messages=_messages(messages),
+                response_format=schema,
+                temperature=temperature,
+            )
         )
         message = response.choices[0].message
         if message.parsed is None:
@@ -125,12 +155,14 @@ class OpenAICompatibleLLM:
         tool_choice: ToolChoice = "auto",
         temperature: float = 0.0,
     ) -> ToolTurn:
-        response = await self._client.chat.completions.create(
-            model=self._model,
-            messages=_messages(messages),
-            tools=_tools(tools),
-            tool_choice=tool_choice,
-            temperature=temperature,
+        response = await self._observe(
+            lambda: self._client.chat.completions.create(
+                model=self._model,
+                messages=_messages(messages),
+                tools=_tools(tools),
+                tool_choice=tool_choice,
+                temperature=temperature,
+            )
         )
         message = response.choices[0].message
         calls = [
@@ -147,8 +179,17 @@ class OpenAICompatibleLLM:
 
 
 class OpenAICompatibleEmbeddings:
-    def __init__(self, client: AsyncOpenAI, model: str, dim: int, *, send_dimensions: bool) -> None:
+    def __init__(
+        self,
+        client: AsyncOpenAI,
+        model: str,
+        dim: int,
+        *,
+        send_dimensions: bool,
+        provider: str = "openai",
+    ) -> None:
         self._client = client
+        self._provider = provider
         self._model = model
         self._dim = dim
         # text-embedding-3-* accept `dimensions`; most other models reject it.
@@ -165,12 +206,16 @@ class OpenAICompatibleEmbeddings:
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
-        if self._send_dimensions:
-            response = await self._client.embeddings.create(
-                model=self._model, input=list(texts), dimensions=self._dim
-            )
-        else:
-            response = await self._client.embeddings.create(model=self._model, input=list(texts))
+        # text-embedding-3-* accept `dimensions`; most other models reject it.
+        dimensions = self._dim if self._send_dimensions else omit
+        response = await _observed(
+            lambda: self._client.embeddings.create(
+                model=self._model, input=list(texts), dimensions=dimensions
+            ),
+            kind="embedding",
+            provider=self._provider,
+            model=self._model,
+        )
         vectors = [item.embedding for item in sorted(response.data, key=lambda d: d.index)]
         if any(len(v) != self._dim for v in vectors):
             raise ValueError(

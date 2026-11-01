@@ -1,8 +1,13 @@
+import time
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.analytics.text_to_sql import MetricsFilters, TextToSQL, TextToSQLError
-from app.api.deps import AnalyticsEngineDep, LLMDep, SettingsDep
-from app.schemas.metrics import MetricsRequest, MetricsResponse, MetricsUsage
+from app.api.deps import AnalyticsEngineDep, LLMDep, PricesDep, SettingsDep
+from app.observability.tracing import current_trace_id
+from app.observability.usage import metered
+from app.schemas.metrics import MetricsRequest, MetricsResponse
+from app.schemas.usage import usage_out
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -13,7 +18,11 @@ router = APIRouter(prefix="/metrics", tags=["metrics"])
     responses={422: {"description": "No valid query could be generated"}},
 )
 async def query_metrics(
-    body: MetricsRequest, llm: LLMDep, analytics: AnalyticsEngineDep, settings: SettingsDep
+    body: MetricsRequest,
+    llm: LLMDep,
+    analytics: AnalyticsEngineDep,
+    settings: SettingsDep,
+    prices: PricesDep,
 ) -> MetricsResponse:
     """Answer a quantitative question with a generated, guarded, read-only SQL query."""
     engine, set_role = analytics
@@ -25,8 +34,10 @@ async def query_metrics(
         set_role=set_role,
     )
     filters = MetricsFilters(industry=body.industry, start=body.start, end=body.end)
+    started = time.perf_counter()
     try:
-        answer = await text_to_sql.answer(body.question, filters)
+        with metered() as meter:
+            answer = await text_to_sql.answer(body.question, filters)
     except TextToSQLError as exc:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, {"message": str(exc), "errors": exc.errors}
@@ -38,7 +49,6 @@ async def query_metrics(
         rows=answer.result.rows,
         truncated=answer.result.truncated,
         attempts=answer.attempts,
-        usage=MetricsUsage(
-            input_tokens=answer.usage.input_tokens, output_tokens=answer.usage.output_tokens
-        ),
+        usage=usage_out(meter, prices, round((time.perf_counter() - started) * 1000)),
+        trace_id=current_trace_id(),
     )

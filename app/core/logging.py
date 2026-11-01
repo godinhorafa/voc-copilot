@@ -2,11 +2,24 @@ import logging
 import sys
 
 import structlog
+from opentelemetry import trace
+
+
+def add_trace_context(
+    _: object, __: str, event_dict: structlog.types.EventDict
+) -> structlog.types.EventDict:
+    """Attach the current trace and span ids so logs link to traces."""
+    context = trace.get_current_span().get_span_context()
+    if context.is_valid:
+        event_dict["trace_id"] = format(context.trace_id, "032x")
+        event_dict["span_id"] = format(context.span_id, "016x")
+    return event_dict
 
 
 def configure_logging(level: str = "INFO", json: bool = True) -> None:
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
+        add_trace_context,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
     ]

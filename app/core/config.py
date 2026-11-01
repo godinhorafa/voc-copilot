@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, model_validator
@@ -38,6 +39,13 @@ class Settings(BaseSettings):
     retrieval_strategy: Literal["vector", "keyword", "hybrid"] = "hybrid"
     retrieval_rerank: bool = False
     retrieval_candidates: int = Field(default=30, gt=0)
+
+    # Observability. Spans are exported when OTEL_EXPORTER_OTLP_ENDPOINT is set
+    # (headers via OTEL_EXPORTER_OTLP_HEADERS, read by the exporter itself).
+    otel_service_name: str = "voc-copilot"
+    otel_exporter_otlp_endpoint: str | None = None
+    # USD per 1M tokens; defaults to app/observability/prices.yaml.
+    prices_file: Path | None = None
 
     # Agent loop budget: tool-calling turns before only final_answer is offered.
     agent_max_steps: int = Field(default=6, ge=1, le=20)

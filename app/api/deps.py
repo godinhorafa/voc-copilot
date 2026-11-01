@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.llm.base import EmbeddingProvider, LLMProvider
+from app.observability.usage import DEFAULT_PRICES, PriceTable, load_prices
 from app.workers.queue import JobQueue
 
 
@@ -54,7 +55,13 @@ def get_embeddings(request: Request) -> EmbeddingProvider:
     return embeddings
 
 
+def get_prices(request: Request) -> PriceTable:
+    settings: Settings = request.app.state.settings
+    return load_prices(settings.prices_file or DEFAULT_PRICES)
+
+
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+PricesDep = Annotated[PriceTable, Depends(get_prices)]
 EngineDep = Annotated[AsyncEngine, Depends(get_engine)]
 AnalyticsEngineDep = Annotated[tuple[AsyncEngine, bool], Depends(get_analytics_engine)]
 RedisDep = Annotated[Redis, Depends(get_redis)]

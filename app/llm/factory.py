@@ -40,7 +40,11 @@ def build_client(settings: Settings, provider: LLMProviderName) -> AsyncOpenAI:
 def build_llm_provider(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "fake":
         return FakeLLMProvider.permissive()
-    return OpenAICompatibleLLM(build_client(settings, settings.llm_provider), settings.llm_model)
+    return OpenAICompatibleLLM(
+        build_client(settings, settings.llm_provider),
+        settings.llm_model,
+        provider=settings.llm_provider,
+    )
 
 
 def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
@@ -52,4 +56,5 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
         settings.embedding_model,
         settings.embedding_dim,
         send_dimensions=settings.embedding_model.startswith("text-embedding-3"),
+        provider=provider,
     )
