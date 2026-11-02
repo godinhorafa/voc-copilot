@@ -4,10 +4,14 @@ Streaming sends progress, not tokens: `tool_start` / `tool_end` events while
 the agent works, then one `answer` event with the full response (the answer
 arrives through the final_answer tool, so there is no text to stream earlier),
 or an `error` event.
+
+Every model call made while answering (agent turns, text-to-SQL, reranking,
+embeddings) is metered, so `usage` covers the whole request.
 """
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -22,39 +26,21 @@ from app.api.deps import (
     AnalyticsEngineDep,
     EmbeddingsDep,
     LLMDep,
+    PricesDep,
     SessionDep,
     SessionmakerDep,
     SettingsDep,
 )
-from app.core.config import Settings
-from app.llm.base import EmbeddingProvider, LLMProvider
+from app.observability.tracing import current_trace_id
+from app.observability.usage import PriceTable, UsageMeter, metered
 from app.retrieval.rerank import LLMReranker
 from app.retrieval.retriever import Retriever
 from app.retrieval.types import SearchFilters
-from app.schemas.ask import (
-    AskRequest,
-    AskResponse,
-    Citation,
-    MetricOut,
-    TraceStepOut,
-    Usage,
-)
+from app.schemas.ask import AskRequest, AskResponse, Citation, MetricOut, TraceStepOut
+from app.schemas.usage import usage_out
 
 router = APIRouter(prefix="/ask", tags=["ask"])
 logger = structlog.get_logger(__name__)
-
-
-def _retriever(
-    settings: Settings, llm: LLMProvider, embeddings: EmbeddingProvider
-) -> tuple[Retriever, LLMReranker | None]:
-    reranker = LLMReranker(llm) if settings.retrieval_rerank else None
-    retriever = Retriever(
-        embeddings,
-        strategy=settings.retrieval_strategy,
-        reranker=reranker,
-        candidates=settings.retrieval_candidates,
-    )
-    return retriever, reranker
 
 
 def _scoped_question(body: AskRequest) -> str:
@@ -73,9 +59,8 @@ def _scoped_question(body: AskRequest) -> str:
 
 
 def _agent_response(
-    result: AgentResult, retriever: Retriever, reranker: LLMReranker | None
+    result: AgentResult, retriever: Retriever, meter: UsageMeter, prices: PriceTable
 ) -> AskResponse:
-    usage = result.usage + reranker.usage if reranker else result.usage
     return AskResponse(
         answer=result.answer,
         citations=[
@@ -100,11 +85,8 @@ def _agent_response(
         sources_retrieved=len(result.sources),
         dropped_citations=len(result.dropped_citations),
         model=result.model,
-        usage=Usage(
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            latency_ms=result.latency_ms,
-        ),
+        usage=usage_out(meter, prices, result.latency_ms),
+        trace_id=current_trace_id(),
     )
 
 
@@ -117,10 +99,16 @@ async def ask(
     embeddings: EmbeddingsDep,
     analytics: AnalyticsEngineDep,
     settings: SettingsDep,
+    prices: PricesDep,
     stream: bool = Query(default=False, description="Stream progress as server-sent events"),
 ) -> Any:
     """Answer a question from customer conversations and metrics, with citations."""
-    retriever, reranker = _retriever(settings, llm, embeddings)
+    retriever = Retriever(
+        embeddings,
+        strategy=settings.retrieval_strategy,
+        reranker=LLMReranker(llm) if settings.retrieval_rerank else None,
+        candidates=settings.retrieval_candidates,
+    )
 
     if body.mode == "rag":
         if stream:
@@ -128,8 +116,11 @@ async def ask(
                 status.HTTP_400_BAD_REQUEST, "stream is only supported in agent mode"
             )
         filters = SearchFilters(industry=body.industry, start=body.start, end=body.end)
-        rag = await RagAnswerer(llm, retriever, k=body.k).answer(session, body.question, filters)
-        usage = rag.usage + reranker.usage if reranker else rag.usage
+        started = time.perf_counter()
+        with metered() as meter:
+            rag = await RagAnswerer(llm, retriever, k=body.k).answer(
+                session, body.question, filters
+            )
         return AskResponse(
             answer=rag.answer,
             citations=[
@@ -142,11 +133,8 @@ async def ask(
             sources_retrieved=len(rag.sources),
             dropped_citations=len(rag.dropped_citations),
             model=rag.model,
-            usage=Usage(
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                latency_ms=rag.latency_ms,
-            ),
+            usage=usage_out(meter, prices, round((time.perf_counter() - started) * 1000)),
+            trace_id=current_trace_id(),
         )
 
     engine, set_role = analytics
@@ -166,9 +154,11 @@ async def ask(
     )
     question = _scoped_question(body)
     if not stream:
-        return _agent_response(await agent.run(question), retriever, reranker)
+        with metered() as meter:
+            result = await agent.run(question)
+        return _agent_response(result, retriever, meter, prices)
     return StreamingResponse(
-        _stream(agent, question, retriever, reranker),
+        _stream(agent, question, retriever, prices),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -179,14 +169,15 @@ def _sse(event: dict[str, Any]) -> str:
 
 
 async def _stream(
-    agent: Agent, question: str, retriever: Retriever, reranker: LLMReranker | None
+    agent: Agent, question: str, retriever: Retriever, prices: PriceTable
 ) -> AsyncIterator[str]:
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
     async def run() -> None:
         try:
-            result = await agent.run(question, on_event=queue.put)
-            response = _agent_response(result, retriever, reranker)
+            with metered() as meter:
+                result = await agent.run(question, on_event=queue.put)
+            response = _agent_response(result, retriever, meter, prices)
             await queue.put({"type": "answer", "data": response.model_dump(mode="json")})
         except Exception:
             logger.exception("agent_stream_failed")

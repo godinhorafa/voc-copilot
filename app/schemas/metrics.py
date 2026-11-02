@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.usage import UsageOut
+
 
 class MetricsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -20,11 +22,6 @@ class MetricsRequest(BaseModel):
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
-class MetricsUsage(BaseModel):
-    input_tokens: int
-    output_tokens: int
-
-
 class MetricsResponse(BaseModel):
     sql: str = Field(description="The query that ran, as normalized by the SQL guard")
     explanation: str
@@ -32,4 +29,5 @@ class MetricsResponse(BaseModel):
     rows: list[list[Any]]
     truncated: bool
     attempts: int
-    usage: MetricsUsage
+    usage: UsageOut
+    trace_id: str | None

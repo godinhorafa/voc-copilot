@@ -42,6 +42,7 @@ from app.analytics.text_to_sql import TextToSQL
 from app.answering.citations import ValidCitation, check_citations
 from app.db.models import Conversation
 from app.llm.base import LLMProvider, Message, ToolCall, ToolSpec, Usage
+from app.observability.tracing import tracer
 from app.retrieval.retriever import Retriever
 from app.retrieval.types import RetrievedChunk
 
@@ -167,6 +168,15 @@ class Agent:
         )
 
     async def run(self, question: str, on_event: EventCallback | None = None) -> AgentResult:
+        with tracer().start_as_current_span("agent.run") as span:
+            result = await self._run(question, on_event)
+            span.set_attribute("agent.steps", result.steps)
+            span.set_attribute("agent.tools_used", result.tools_used)
+            span.set_attribute("agent.citations", len(result.citations))
+            span.set_attribute("agent.dropped_citations", len(result.dropped_citations))
+            return result
+
+    async def _run(self, question: str, on_event: EventCallback | None) -> AgentResult:
         started = time.perf_counter()
 
         async def emit(event: dict[str, Any]) -> None:
@@ -228,7 +238,9 @@ class Agent:
                         return result(step, verdict)
                     content, error = verdict.feedback, True
                 else:
-                    content, error = await self._execute(call, evidence)
+                    with tracer().start_as_current_span(f"agent.tool {call.name}") as span:
+                        content, error = await self._execute(call, evidence)
+                        span.set_attribute("agent.tool.error", error)
                 trace.append(
                     TraceStep(step, call.name, arguments, _summary(content), _ms(t0), error)
                 )

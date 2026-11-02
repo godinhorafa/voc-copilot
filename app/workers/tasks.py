@@ -22,11 +22,34 @@ from app.ingestion.pipeline import (
     process_conversation,
     start_job,
 )
+from app.observability.tracing import tracer
+from app.observability.usage import DEFAULT_PRICES, load_prices, metered
 
 logger = structlog.get_logger(__name__)
 
 
 async def process_ingestion_job(ctx: dict[str, Any], job_id: str) -> str:
+    with (
+        tracer().start_as_current_span("ingestion.job") as span,
+        metered() as meter,
+    ):
+        span.set_attribute("job.id", job_id)
+        span.set_attribute("job.attempt", ctx.get("job_try", 1))
+        outcome = await _process_ingestion_job(ctx, job_id)
+        settings: Settings = ctx["settings"]
+        _, cost = meter.priced(load_prices(settings.prices_file or DEFAULT_PRICES))
+        logger.info(
+            "ingestion_job_usage",
+            job_id=job_id,
+            outcome=outcome,
+            input_tokens=meter.input_tokens,
+            output_tokens=meter.output_tokens,
+            cost_usd=cost,
+        )
+        return outcome
+
+
+async def _process_ingestion_job(ctx: dict[str, Any], job_id: str) -> str:
     settings: Settings = ctx["settings"]
     sessionmaker = ctx["sessionmaker"]
     embeddings = ctx["embeddings"]

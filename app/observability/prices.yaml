@@ -1,0 +1,18 @@
+# USD per 1M tokens, used to estimate `cost_usd`.
+#
+# Prices change and were not verified against the providers' pricing pages
+# when this file was written: check them, and override with your own file via
+# PRICES_FILE. A model matches the longest key that prefixes its name, so
+# "gpt-4o-mini-2024-07-18" uses "gpt-4o-mini". Models on the `free_providers`
+# list cost 0; any other unknown model is reported as unpriced, never as 0.
+
+free_providers: [fake, ollama]
+
+models:
+  gpt-4o-mini: {input: 0.15, output: 0.60}
+  gpt-4o: {input: 2.50, output: 10.00}
+  gpt-4.1-nano: {input: 0.10, output: 0.40}
+  gpt-4.1-mini: {input: 0.40, output: 1.60}
+  gpt-4.1: {input: 2.00, output: 8.00}
+  text-embedding-3-small: {input: 0.02, output: 0}
+  text-embedding-3-large: {input: 0.13, output: 0}

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import structlog
 from arq.connections import ArqRedis
 from fastapi import FastAPI
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from redis.asyncio import ConnectionPool
 
 from app.api import v1
@@ -14,6 +15,7 @@ from app.core.middleware import RequestContextMiddleware
 from app.db.models import EMBEDDING_DIM
 from app.db.session import create_engine, create_sessionmaker
 from app.llm.factory import build_embedding_provider, build_llm_provider
+from app.observability.tracing import setup_tracing
 from app.workers.queue import ArqJobQueue
 
 logger = structlog.get_logger(__name__)
@@ -58,6 +60,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.info("shutdown")
 
     app = FastAPI(title="VOC Copilot", version="0.1.0", lifespan=lifespan)
+    setup_tracing(settings.otel_service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint)
+    # Added before the request-context middleware so request logs carry the trace id.
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="health,ready")
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health.router)
     app.include_router(v1.router)

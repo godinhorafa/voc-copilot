@@ -28,6 +28,8 @@ from app.llm.base import (
     ToolTurn,
     Usage,
 )
+from app.observability.tracing import llm_span, record_usage
+from app.observability.usage import Kind
 
 FAKE_MODEL = "fake-llm"
 FAKE_EMBEDDING_MODEL = "fake-embedding"
@@ -52,6 +54,20 @@ def tool_turn(*calls: tuple[str, dict[str, Any]], text: str | None = None) -> To
 
 def _count_tokens(text: str) -> int:
     return len(_TOKEN.findall(text))
+
+
+def _observe(kind: Kind, model: str, usage: Usage) -> None:
+    """Emit the same span and usage record a real provider would."""
+    with llm_span(kind, provider="fake", model=model) as span:
+        record_usage(
+            span,
+            kind=kind,
+            provider="fake",
+            model=model,
+            response_model=model,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+        )
 
 
 def _placeholder(annotation: Any) -> Any:
@@ -117,7 +133,9 @@ class FakeLLMProvider:
     ) -> Completion:
         self.calls.append(list(messages))
         text = self._responses.popleft() if self._responses else self._default
-        return Completion(text=text, model=FAKE_MODEL, usage=self._usage(messages, text))
+        usage = self._usage(messages, text)
+        _observe("chat", FAKE_MODEL, usage)
+        return Completion(text=text, model=FAKE_MODEL, usage=usage)
 
     async def complete_structured[T: BaseModel](
         self,
@@ -137,11 +155,9 @@ class FakeLLMProvider:
                 f"FakeLLMProvider has no scripted response for {schema.__name__}; "
                 "queue a JSON response or pass `structured=`"
             )
-        return StructuredCompletion[T](
-            value=value,
-            model=FAKE_MODEL,
-            usage=self._usage(messages, value.model_dump_json()),
-        )
+        usage = self._usage(messages, value.model_dump_json())
+        _observe("chat", FAKE_MODEL, usage)
+        return StructuredCompletion[T](value=value, model=FAKE_MODEL, usage=usage)
 
     async def complete_with_tools(
         self,
@@ -161,7 +177,9 @@ class FakeLLMProvider:
         else:
             raise LookupError("FakeLLMProvider has no scripted tool turn; queue one")
         output = turn.text or "".join(c.arguments for c in turn.tool_calls)
-        return turn.model_copy(update={"usage": self._usage(messages, output)})
+        usage = self._usage(messages, output)
+        _observe("chat", FAKE_MODEL, usage)
+        return turn.model_copy(update={"usage": usage})
 
 
 def _finish(messages: Sequence[Message], tools: Sequence[ToolSpec]) -> ToolTurn:
@@ -199,4 +217,6 @@ class FakeEmbeddingProvider:
         return [v / norm for v in vector] if norm else vector
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        tokens = sum(_count_tokens(t) for t in texts)
+        _observe("embedding", FAKE_EMBEDDING_MODEL, Usage(input_tokens=tokens))
         return [self._embed_one(t) for t in texts]
