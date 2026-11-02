@@ -1,0 +1,11 @@
+{
+  "tolerance": 0.01,
+  "metrics": {
+    "retrieval.hybrid.fake-embedding.mrr@10": 0.7232,
+    "retrieval.hybrid.fake-embedding.recall@10": 0.5944,
+    "retrieval.keyword.fake-embedding.mrr@10": 0.8248,
+    "retrieval.keyword.fake-embedding.recall@10": 0.7678,
+    "retrieval.vector.fake-embedding.mrr@10": 0.3875,
+    "retrieval.vector.fake-embedding.recall@10": 0.2678
+  }
+}
