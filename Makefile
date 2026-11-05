@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up up-observability down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent evals evals-record evals-baseline test test-unit lint format typecheck check
+.PHONY: help install up up-observability down logs dev web demo worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent evals evals-record evals-baseline test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -24,6 +24,12 @@ logs: ## Tail API and worker logs
 
 dev: ## Run the API locally with hot reload (needs postgres + redis: `docker compose up -d postgres redis`)
 	$(UV) uvicorn app.main:create_app --factory --reload
+
+web: ## Run the web UI with hot reload at http://localhost:5173 (needs the API on :8000)
+	cd web && npm install && npm run dev
+
+demo: ## Load the demo dataset with ground-truth insights (no LLM needed), then open http://localhost:3000
+	$(UV) python -m scripts.demo_seed
 
 worker: ## Run the ingestion worker locally
 	$(UV) arq app.workers.settings.WorkerSettings
