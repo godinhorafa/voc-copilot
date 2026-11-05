@@ -104,9 +104,14 @@ Split in two PRs: **2a** (pipeline) ✅ and **2b** (extraction and real provider
 
 Verified end to end: Jaeger received request and worker traces with nested agent, tool and model spans.
 
-## Phase 8 – Evals in CI
+## Phase 8 – Evals in CI ✅ (LLM evals waiting for recorded responses)
 
-- Cached LLM responses on a fixed subset; report posted on each PR; thresholds that fail regressions
+- `evals/ci.py`: migrate, ingest the committed dataset in-process, run retrieval (vector, keyword, hybrid) and the LLM evals, compare with `evals/baselines.json` (tolerance 0.01), write a Markdown report
+- Record/replay cache for LLM and embedding calls, keyed by a hash of the full request; a miss fails the run, an absent cache is reported as skipped
+- `.github/workflows/evals.yml`: Postgres service, sticky PR comment, job summary, artifact; fails after reporting
+- `make evals`, `make evals-record`, `make evals-baseline`; ADR 0009
+
+**Pending (needs an API key once):** `make evals-record` so extraction, SQL and agent evals start gating PRs.
 
 ## Phase 9 – Hardening and extras
 

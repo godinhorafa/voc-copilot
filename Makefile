@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up up-observability down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent test test-unit lint format typecheck check
+.PHONY: help install up up-observability down logs dev worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent evals evals-record evals-baseline test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -68,6 +68,20 @@ eval-sql: ## Text-to-SQL execution accuracy (needs a real LLM and the dataset in
 
 eval-agent: ## Agent routing, citation validity and (with ARGS=--judge) faithfulness; needs a real LLM
 	$(UV) python -m evals.agent_eval evals/datasets/agent_questions.jsonl $(ARGS)
+
+EVALS_DB ?= postgresql+asyncpg://voc:voc@localhost:5432/voc_evals
+
+evals-db:
+	@docker compose exec -T postgres createdb -U voc voc_evals 2>/dev/null || true
+
+evals: evals-db ## The CI eval suite against a dedicated database; fails on regression vs evals/baselines.json
+	$(UV) python -m evals.ci --database-url $(EVALS_DB)
+
+evals-record: evals-db ## Re-record LLM responses for the CI evals (needs a real LLM_PROVIDER)
+	$(UV) python -m evals.ci --database-url $(EVALS_DB) --record
+
+evals-baseline: evals-db ## Accept current eval numbers as the new baseline (commit evals/baselines.json)
+	$(UV) python -m evals.ci --database-url $(EVALS_DB) --update-baselines
 
 seed-dataset: ## Ingest the committed dataset into the running API
 	$(UV) python -m scripts.ingest $(DATASET_DIR)

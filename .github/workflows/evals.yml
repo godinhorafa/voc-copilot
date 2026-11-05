@@ -1,0 +1,63 @@
+name: Evals
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write  # sticky report comment
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: voc
+          POSTGRES_PASSWORD: voc
+          POSTGRES_DB: voc_evals
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U voc -d voc_evals"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      # Offline by design: retrieval runs on hashed embeddings, LLM evals replay
+      # responses recorded in evals/cache/ (see evals/ci.py).
+      LLM_PROVIDER: fake
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Run evals
+        id: evals
+        continue-on-error: true  # report first, fail at the end
+        run: >-
+          uv run python -m evals.ci
+          --database-url postgresql+asyncpg://voc:voc@localhost:5432/voc_evals
+          --report eval-report.md
+      - name: Job summary
+        if: always()
+        run: cat eval-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment on the pull request
+        # Forks get a read-only token, so they only see the job summary.
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: eval-report
+          path: eval-report.md
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: eval-report
+          path: eval-report.md
+      - name: Fail on regression
+        if: steps.evals.outcome != 'success'
+        run: exit 1
