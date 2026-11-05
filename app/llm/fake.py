@@ -99,7 +99,9 @@ class FakeLLMProvider:
         structured: StructuredFactory | None = None,
         tool_turns: Sequence[ToolTurn] = (),
         tool_script: ToolScript | None = None,
+        model: str = FAKE_MODEL,
     ) -> None:
+        self._model = model
         self._responses: deque[str] = deque(responses)
         self._default = default
         self._structured = structured
@@ -134,8 +136,8 @@ class FakeLLMProvider:
         self.calls.append(list(messages))
         text = self._responses.popleft() if self._responses else self._default
         usage = self._usage(messages, text)
-        _observe("chat", FAKE_MODEL, usage)
-        return Completion(text=text, model=FAKE_MODEL, usage=usage)
+        _observe("chat", self._model, usage)
+        return Completion(text=text, model=self._model, usage=usage)
 
     async def complete_structured[T: BaseModel](
         self,
@@ -156,8 +158,8 @@ class FakeLLMProvider:
                 "queue a JSON response or pass `structured=`"
             )
         usage = self._usage(messages, value.model_dump_json())
-        _observe("chat", FAKE_MODEL, usage)
-        return StructuredCompletion[T](value=value, model=FAKE_MODEL, usage=usage)
+        _observe("chat", self._model, usage)
+        return StructuredCompletion[T](value=value, model=self._model, usage=usage)
 
     async def complete_with_tools(
         self,
