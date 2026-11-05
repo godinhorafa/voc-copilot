@@ -113,8 +113,18 @@ Verified end to end: Jaeger received request and worker traces with nested agent
 
 **Pending (needs an API key once):** `make evals-record` so extraction, SQL and agent evals start gating PRs.
 
-## Phase 9 – Hardening and extras
+## Phase 9 – Web UI ✅
 
+- `web/`: Vite + React + TypeScript + shadcn/ui (Radix, Tailwind), light/dark/system themes, responsive down to phone width
+- Ask: SSE progress per agent step, answer with `S#` chips (quote tooltip, opens the conversation with the cited turn highlighted) and `M#` chips (metric table + SQL), sources, run details (latency, tokens, cost, trace id), stop button
+- Insights: KPI tiles, conversations and churn per month, contact reasons (click to ask why), competitors; validated chart colors, tooltips, chart/table toggle
+- Same-origin `/api` proxy adds the API key (Vite in dev, nginx in Docker); `web` service in Compose on :3000
+- API additions: citation source numbers, `GET /v1/insights`
+- `make demo`: ground-truth insights for exploring the UI without an LLM
+- Vitest (SSE parser, citation parsing, event reducer, answer rendering) and a `web` CI job (typecheck, lint, test, build)
+
+## Phase 10 – Hardening
+
+- Per-user authentication (OIDC at the proxy) and role-based access
 - PII redaction before embedding, multi-tenancy with row-level security, rate limiting
-- React UI built with **shadcn/ui** (Tailwind, Radix): modern layout, accessible components, dark mode. Chat with streamed answers and clickable citations that open the source conversation; insights dashboard with filters
 - Deploy guide for Azure Container Apps
