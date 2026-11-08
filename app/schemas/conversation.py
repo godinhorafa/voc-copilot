@@ -101,5 +101,8 @@ class ConversationOut(BaseModel):
     status: ProcessingStatus
     processing_error: str | None
     chunk_count: int
+    redactions: dict[str, int] = Field(
+        default_factory=dict, description="PII replaced at ingestion, by kind"
+    )
     insight: InsightOut | None = Field(description="Null until extraction has run")
     turns: list[TurnOut]

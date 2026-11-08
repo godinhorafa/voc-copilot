@@ -16,6 +16,7 @@ from app.db.models import EMBEDDING_DIM
 from app.db.session import create_engine, create_sessionmaker
 from app.llm.factory import build_embedding_provider, build_llm_provider
 from app.observability.tracing import setup_tracing
+from app.privacy.redaction import Redactor
 from app.workers.queue import ArqJobQueue
 
 logger = structlog.get_logger(__name__)
@@ -49,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.queue = ArqJobQueue(redis)
         app.state.llm = build_llm_provider(settings)
         app.state.embeddings = build_embedding_provider(settings)
+        app.state.redactor = Redactor() if settings.pii_redaction else None
         logger.info("startup", environment=settings.environment, llm=settings.llm_provider)
         try:
             yield

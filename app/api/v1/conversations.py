@@ -1,10 +1,11 @@
 import structlog
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import QueueDep, SessionDep
+from app.api.deps import QueueDep, RedactorDep, SessionDep
+from app.core.rate_limit import rate_limit
 from app.db.models import Chunk, Conversation
 from app.ingestion.service import ingest_conversations
 from app.schemas.conversation import (
@@ -22,16 +23,21 @@ logger = structlog.get_logger(__name__)
 
 @router.post(
     "",
+    dependencies=[Depends(rate_limit("ingest", lambda s: s.rate_limit_ingest))],
     response_model=IngestResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={200: {"model": IngestResponse, "description": "Nothing needed processing"}},
 )
 async def upload_conversations(
-    body: IngestRequest, session: SessionDep, queue: QueueDep, response: Response
+    body: IngestRequest,
+    session: SessionDep,
+    queue: QueueDep,
+    redactor: RedactorDep,
+    response: Response,
 ) -> IngestResponse:
     """Upload conversations. Idempotent by `external_id`; processing is asynchronous."""
     try:
-        result = await ingest_conversations(session, body.conversations)
+        result = await ingest_conversations(session, body.conversations, redactor=redactor)
     except IntegrityError as exc:
         # Another request inserted one of these external_ids concurrently.
         raise HTTPException(
@@ -85,6 +91,7 @@ async def get_conversation(external_id: str, session: SessionDep) -> Conversatio
         status=state,
         processing_error=conv.processing_error,
         chunk_count=chunk_count or 0,
+        redactions=conv.redactions or {},
         insight=InsightOut.model_validate(conv.insight) if conv.insight else None,
         turns=[TurnOut.model_validate(t) for t in conv.turns],
     )

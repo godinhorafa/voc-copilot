@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     # USD per 1M tokens; defaults to app/observability/prices.yaml.
     prices_file: Path | None = None
 
+    # Per-client limits ("N/second|minute|hour|day"; empty or 0 disables). Ask and
+    # metrics call the LLM, so they are the ones worth protecting.
+    rate_limit_ask: str = "20/minute"
+    rate_limit_metrics: str = "30/minute"
+    rate_limit_ingest: str = "120/minute"
+    # Count the first X-Forwarded-For hop as the client IP (behind the web UI's nginx).
+    rate_limit_trust_forwarded_for: bool = False
+
+    # Replace emails, phones, cards, IBANs, CPF/SSN and IPs in transcripts before
+    # they are stored (see app/privacy/redaction.py). Names are not detected.
+    pii_redaction: bool = True
+
     # Agent loop budget: tool-calling turns before only final_answer is offered.
     agent_max_steps: int = Field(default=6, ge=1, le=20)
     # LLM-as-judge for evals; a different model than LLM_MODEL limits self-preference.
@@ -69,6 +81,14 @@ class Settings(BaseSettings):
     azure_openai_api_key: SecretStr | None = None
     azure_openai_api_version: str | None = None
     ollama_base_url: str = "http://localhost:11434"
+
+    @model_validator(mode="after")
+    def _check_rate_limits(self) -> Self:
+        from app.core.rate_limit import parse_rate  # avoid an import cycle
+
+        for value in (self.rate_limit_ask, self.rate_limit_metrics, self.rate_limit_ingest):
+            parse_rate(value)
+        return self
 
     @model_validator(mode="after")
     def _check_provider_credentials(self) -> Self:
