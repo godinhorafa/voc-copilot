@@ -34,6 +34,7 @@ class AskRequest(BaseModel):
 
 
 class Citation(BaseModel):
+    source: int = Field(description="Source number used in the answer, e.g. 3 for [S3]")
     conversation_id: str = Field(description="external_id of the cited conversation")
     excerpt: str
 

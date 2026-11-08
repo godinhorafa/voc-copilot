@@ -257,7 +257,9 @@ async def test_ask_streams_progress_then_answer(
     ]
     assert events[0][1]["tool"] == "search_conversations"
     answer = events[-1][1]["data"]
-    assert answer["citations"] == [{"conversation_id": "price", "excerpt": "my bill went up"}]
+    assert answer["citations"] == [
+        {"source": 1, "conversation_id": "price", "excerpt": "my bill went up"}
+    ]
 
 
 async def test_stream_error_event(app: FastAPI, client: AsyncClient) -> None:

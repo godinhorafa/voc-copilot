@@ -13,5 +13,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0007 | [Guarded text-to-SQL over read-only views](0007-guarded-text-to-sql.md) | Accepted |
 | 0008 | [OpenTelemetry tracing and a usage meter for cost](0008-opentelemetry-tracing-and-cost.md) | Accepted |
 | 0009 | [Evals in CI with recorded responses and baselines](0009-evals-in-ci.md) | Accepted |
+| 0010 | [Web UI with a same-origin API proxy](0010-web-ui.md) | Accepted |
 
 Template: [`template.md`](template.md).

@@ -64,7 +64,8 @@ def _agent_response(
     return AskResponse(
         answer=result.answer,
         citations=[
-            Citation(conversation_id=c.external_id, excerpt=c.quote) for c in result.citations
+            Citation(source=c.source, conversation_id=c.external_id, excerpt=c.quote)
+            for c in result.citations
         ],
         metrics=[
             MetricOut(
@@ -124,7 +125,8 @@ async def ask(
         return AskResponse(
             answer=rag.answer,
             citations=[
-                Citation(conversation_id=c.external_id, excerpt=c.quote) for c in rag.citations
+                Citation(source=c.source, conversation_id=c.external_id, excerpt=c.quote)
+                for c in rag.citations
             ],
             tools_used=["search_conversations"],
             mode="rag",

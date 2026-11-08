@@ -89,7 +89,7 @@ async def test_ask_returns_verified_citations(
     body = response.json()
     assert response.status_code == 200
     assert body["citations"] == [
-        {"conversation_id": "billing", "excerpt": "charged twice on my invoice"}
+        {"source": 1, "conversation_id": "billing", "excerpt": "charged twice on my invoice"}
     ]
     assert (body["sources_retrieved"], body["dropped_citations"]) == (2, 0)
     assert body["tools_used"] == ["search_conversations"]
