@@ -14,5 +14,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0008 | [OpenTelemetry tracing and a usage meter for cost](0008-opentelemetry-tracing-and-cost.md) | Accepted |
 | 0009 | [Evals in CI with recorded responses and baselines](0009-evals-in-ci.md) | Accepted |
 | 0010 | [Web UI with a same-origin API proxy](0010-web-ui.md) | Accepted |
+| 0011 | [PII redaction at ingestion and per-client rate limits](0011-pii-redaction-and-rate-limiting.md) | Accepted |
 
 Template: [`template.md`](template.md).
