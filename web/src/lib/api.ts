@@ -54,6 +54,13 @@ export async function* askStream(
     body: JSON.stringify(body),
     signal,
   })
+  if (response.status === 429) {
+    const wait = response.headers.get('Retry-After')
+    throw new ApiError(
+      429,
+      `You're asking faster than the rate limit allows. Try again${wait ? ` in ${wait} s` : ' shortly'}.`,
+    )
+  }
   if (!response.ok || !response.body) {
     throw new ApiError(response.status, `The question could not be sent (${response.status}).`)
   }

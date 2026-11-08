@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Headphones, MessageSquare } from 'lucide-react'
+import { AlertCircle, Headphones, MessageSquare, ShieldCheck } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -102,6 +102,7 @@ function ConversationDetail({ target }: { target: Target }) {
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-5 p-5">
             {conversation.insight && <InsightSummary conversation={conversation} />}
+            <Redactions counts={conversation.redactions} />
             <Separator />
             <Transcript conversation={conversation} highlight={target.highlight} />
           </div>
@@ -136,6 +137,19 @@ function InsightSummary({ conversation }: { conversation: Conversation }) {
         ))}
       </div>
     </section>
+  )
+}
+
+function Redactions({ counts }: { counts: Record<string, number> }) {
+  const entries = Object.entries(counts ?? {})
+  if (!entries.length) return null
+  const total = entries.reduce((sum, [, n]) => sum + n, 0)
+  const detail = entries.map(([kind, n]) => `${n} ${kind.toLowerCase()}`).join(', ')
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <ShieldCheck className="size-3.5" aria-hidden />
+      {total} personal detail{total === 1 ? '' : 's'} redacted at ingestion ({detail})
+    </p>
   )
 }
 
