@@ -15,5 +15,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0009 | [Evals in CI with recorded responses and baselines](0009-evals-in-ci.md) | Accepted |
 | 0010 | [Web UI with a same-origin API proxy](0010-web-ui.md) | Accepted |
 | 0011 | [PII redaction at ingestion and per-client rate limits](0011-pii-redaction-and-rate-limiting.md) | Accepted |
+| 0012 | [Tenants, per-tenant API keys and row-level security](0012-tenants-api-keys-and-row-level-security.md) | Accepted |
 
 Template: [`template.md`](template.md).

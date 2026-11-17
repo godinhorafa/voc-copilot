@@ -131,10 +131,17 @@ Verified end to end: Jaeger received request and worker traces with nested agent
 - Fixed-window rate limits in Redis per client (API key + IP) on ask, metrics and ingest; `429` with `Retry-After` and `RateLimit-*` headers; fail-open on Redis errors; the UI explains the wait
 - ADR 0011
 
-### 10b – Identity and tenants
+### 10b-1 – Tenants, API keys and row-level security ✅
 
-- Per-user authentication (OIDC at the proxy) and role-based access
-- Multi-tenancy with row-level security
+- `tenants` and `api_keys` (SHA-256 hashes; shown once); `tenant_id` on every customer-data table, defaulting to the transaction's tenant (migration `0006`, existing data → `default` tenant)
+- Postgres row-level security, FORCEd, on all of them; tenant-scoped sessions set `app.tenant_id` and switch to the `voc_app` role per transaction; the analytics views filter on the tenant too
+- Roles per key (`admin`, `analyst`, `ingest`) checked per route; `/v1/api-keys` for admins; `scripts/tenants.py` for operators; `API_KEY` stays as the default tenant's bootstrap admin
+- Worker jobs carry their tenant; evals and the demo seed run in the default tenant
+- Isolation tests on every table, the API, the worker and text-to-SQL; role matrix; ADR 0012
+
+### 10b-2 – Users
+
+- Per-user sign-in to the web UI (OIDC at the proxy), mapped to a tenant and a role
 
 ### 10c – Deploy
 
