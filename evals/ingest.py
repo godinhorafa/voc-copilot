@@ -13,6 +13,7 @@ from app.ingestion.pipeline import PipelineConfig, process_conversation
 from app.ingestion.service import ingest_conversations, upsert_customers
 from app.llm.base import EmbeddingProvider, LLMProvider
 from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider
+from app.privacy.redaction import Redactor
 from app.schemas.conversation import ConversationIn
 from app.schemas.customer import CustomerIn
 
@@ -30,6 +31,7 @@ async def ingest_payloads(
     *,
     embeddings: EmbeddingProvider | None = None,
     llm: LLMProvider | None = None,
+    redactor: Redactor | None = None,
 ) -> int:
     """Upload and fully process conversations. Defaults to the offline fakes."""
     embeddings = embeddings or FakeEmbeddingProvider()
@@ -38,7 +40,7 @@ async def ingest_payloads(
     processed = 0
     for i in range(0, len(items), BATCH):
         async with sessionmaker() as session:
-            result = await ingest_conversations(session, items[i : i + BATCH])
+            result = await ingest_conversations(session, items[i : i + BATCH], redactor=redactor)
         for conversation_id in result.to_process:
             await process_conversation(
                 sessionmaker, embeddings, extractor, conversation_id, PipelineConfig()

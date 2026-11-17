@@ -17,7 +17,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Deterministic constraint names keep Alembic autogenerate diffs stable.
@@ -69,6 +69,8 @@ class Conversation(Base):
     chunked_hash: Mapped[str | None] = mapped_column(String(64))
     processed_hash: Mapped[str | None] = mapped_column(String(64))  # all steps done
     processing_error: Mapped[str | None] = mapped_column(Text)
+    # PII found and replaced at ingestion, by kind (e.g. {"EMAIL": 2}); never the values.
+    redactions: Mapped[dict[str, int]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

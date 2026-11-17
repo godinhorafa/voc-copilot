@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from app.agent.orchestrator import Agent, AgentResult
@@ -31,6 +31,7 @@ from app.api.deps import (
     SessionmakerDep,
     SettingsDep,
 )
+from app.core.rate_limit import rate_limit
 from app.observability.tracing import current_trace_id
 from app.observability.usage import PriceTable, UsageMeter, metered
 from app.retrieval.rerank import LLMReranker
@@ -39,7 +40,11 @@ from app.retrieval.types import SearchFilters
 from app.schemas.ask import AskRequest, AskResponse, Citation, MetricOut, TraceStepOut
 from app.schemas.usage import usage_out
 
-router = APIRouter(prefix="/ask", tags=["ask"])
+router = APIRouter(
+    prefix="/ask",
+    tags=["ask"],
+    dependencies=[Depends(rate_limit("ask", lambda s: s.rate_limit_ask))],
+)
 logger = structlog.get_logger(__name__)
 
 

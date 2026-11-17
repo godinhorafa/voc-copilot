@@ -93,6 +93,7 @@ export interface Conversation {
   status: 'pending' | 'processed' | 'failed'
   processing_error: string | null
   chunk_count: number
+  redactions: Record<string, number>
   insight: Insight | null
   turns: { speaker: 'agent' | 'customer'; text: string; offset_s: number | null }[]
 }

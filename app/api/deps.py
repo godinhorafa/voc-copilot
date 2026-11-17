@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.core.config import Settings
 from app.llm.base import EmbeddingProvider, LLMProvider
 from app.observability.usage import DEFAULT_PRICES, PriceTable, load_prices
+from app.privacy.redaction import Redactor
 from app.workers.queue import JobQueue
 
 
@@ -71,9 +72,15 @@ LLMDep = Annotated[LLMProvider, Depends(get_llm)]
 EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embeddings)]
 
 
+def get_redactor(request: Request) -> Redactor | None:
+    redactor: Redactor | None = request.app.state.redactor
+    return redactor
+
+
 def get_queue(request: Request) -> JobQueue:
     queue: JobQueue = request.app.state.queue
     return queue
 
 
 QueueDep = Annotated[JobQueue, Depends(get_queue)]
+RedactorDep = Annotated[Redactor | None, Depends(get_redactor)]

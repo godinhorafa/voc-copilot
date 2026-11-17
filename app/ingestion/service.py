@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models import Conversation, Customer, Job, Turn
+from app.privacy.redaction import Redactor
 from app.schemas.conversation import ConversationIn
 from app.schemas.customer import CustomerIn
 
@@ -34,14 +35,28 @@ class IngestResult:
     job_id: uuid.UUID | None = None
 
 
-def _turns(item: ConversationIn) -> list[Turn]:
-    return [
-        Turn(idx=i, speaker=t.speaker, text=t.text, offset_s=t.offset_s)
-        for i, t in enumerate(item.turns)
+def _turns(item: ConversationIn, redactor: Redactor | None) -> tuple[list[Turn], dict[str, int]]:
+    """Turns to store, with PII replaced when a redactor is given.
+
+    Redaction happens here, before anything is persisted, so original text is
+    never stored, embedded or sent to an LLM. The content hash is still taken
+    from the original payload, so re-uploads are recognized as unchanged.
+    """
+    texts = [t.text for t in item.turns]
+    counts: dict[str, int] = {}
+    if redactor is not None:
+        redaction = redactor.redact(texts)
+        texts, counts = redaction.texts, redaction.counts
+    turns = [
+        Turn(idx=i, speaker=t.speaker, text=text, offset_s=t.offset_s)
+        for i, (t, text) in enumerate(zip(item.turns, texts, strict=True))
     ]
+    return turns, counts
 
 
-async def ingest_conversations(session: AsyncSession, items: list[ConversationIn]) -> IngestResult:
+async def ingest_conversations(
+    session: AsyncSession, items: list[ConversationIn], *, redactor: Redactor | None = None
+) -> IngestResult:
     """Upsert conversations and create a job for those that need processing.
 
     Commits on success. The caller enqueues `result.job_id` afterwards.
@@ -61,6 +76,7 @@ async def ingest_conversations(session: AsyncSession, items: list[ConversationIn
         content_hash = item.content_hash()
         conv = existing.get(item.external_id)
         if conv is None:
+            turns, redactions = _turns(item, redactor)
             conv = Conversation(
                 external_id=item.external_id,
                 customer_id=item.customer_id,
@@ -68,7 +84,8 @@ async def ingest_conversations(session: AsyncSession, items: list[ConversationIn
                 channel=item.channel,
                 started_at=item.started_at,
                 content_hash=content_hash,
-                turns=_turns(item),
+                redactions=redactions,
+                turns=turns,
             )
             session.add(conv)
             result.created += 1
@@ -82,7 +99,8 @@ async def ingest_conversations(session: AsyncSession, items: list[ConversationIn
             # Delete old turns before inserting new ones: same (conversation_id, idx) keys.
             conv.turns.clear()
             await session.flush()
-            conv.turns.extend(_turns(item))
+            turns, conv.redactions = _turns(item, redactor)
+            conv.turns.extend(turns)
             result.updated += 1
         else:
             result.unchanged += 1

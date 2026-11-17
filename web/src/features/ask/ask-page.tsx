@@ -62,7 +62,8 @@ export function AskPage() {
                 <AnswerCard exchange={exchange} />
               </div>
             ))}
-            <div ref={endRef} />
+            {/* scroll-mb keeps the latest answer clear of the sticky composer */}
+            <div ref={endRef} className="scroll-mb-44" />
           </div>
         )}
       </div>

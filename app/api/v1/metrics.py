@@ -1,15 +1,20 @@
 import time
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.analytics.text_to_sql import MetricsFilters, TextToSQL, TextToSQLError
 from app.api.deps import AnalyticsEngineDep, LLMDep, PricesDep, SettingsDep
+from app.core.rate_limit import rate_limit
 from app.observability.tracing import current_trace_id
 from app.observability.usage import metered
 from app.schemas.metrics import MetricsRequest, MetricsResponse
 from app.schemas.usage import usage_out
 
-router = APIRouter(prefix="/metrics", tags=["metrics"])
+router = APIRouter(
+    prefix="/metrics",
+    tags=["metrics"],
+    dependencies=[Depends(rate_limit("metrics", lambda s: s.rate_limit_metrics))],
+)
 
 
 @router.post(

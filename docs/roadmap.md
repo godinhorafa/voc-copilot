@@ -125,6 +125,17 @@ Verified end to end: Jaeger received request and worker traces with nested agent
 
 ## Phase 10 – Hardening
 
+### 10a – PII redaction and rate limiting ✅
+
+- `app/privacy/redaction.py`: validated detectors (email, phone, card/Luhn, IBAN/mod-97, CPF, SSN, IPv4, long-number catch-all), stable typed placeholders; applied at ingestion so originals are never stored, embedded or sent to an LLM; counts per kind on each conversation (migration `0005`), shown in the UI
+- Fixed-window rate limits in Redis per client (API key + IP) on ask, metrics and ingest; `429` with `Retry-After` and `RateLimit-*` headers; fail-open on Redis errors; the UI explains the wait
+- ADR 0011
+
+### 10b – Identity and tenants
+
 - Per-user authentication (OIDC at the proxy) and role-based access
-- PII redaction before embedding, multi-tenancy with row-level security, rate limiting
+- Multi-tenancy with row-level security
+
+### 10c – Deploy
+
 - Deploy guide for Azure Container Apps

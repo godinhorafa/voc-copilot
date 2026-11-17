@@ -37,6 +37,11 @@ def make_settings(**overrides: object) -> Settings:
         "log_json": False,
         "log_level": "WARNING",
         "api_key": TEST_API_KEY,
+        # Off by default: tests share one Redis and one client identity, so
+        # counts would leak between tests. test_rate_limit.py turns them on.
+        "rate_limit_ask": "",
+        "rate_limit_metrics": "",
+        "rate_limit_ingest": "",
     }
     # model_validate skips env vars and .env, so tests never pick up local config.
     return Settings.model_validate(base | overrides)

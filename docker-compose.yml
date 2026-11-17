@@ -8,6 +8,8 @@ x-app: &app
   environment:
     DATABASE_URL: postgresql+asyncpg://voc:voc@postgres:5432/voc
     REDIS_URL: redis://redis:6379/0
+    # Requests reach the API through the web UI's nginx, which sets X-Forwarded-For.
+    RATE_LIMIT_TRUST_FORWARDED_FOR: "true"
 
 services:
   postgres:
