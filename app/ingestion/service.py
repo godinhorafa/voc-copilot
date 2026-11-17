@@ -124,8 +124,9 @@ async def upsert_customers(session: AsyncSession, items: list[CustomerIn]) -> in
     if not items:
         return 0
     stmt = insert(Customer).values([c.model_dump() for c in items])
+    # tenant_id is filled from the transaction's tenant; ids are unique per tenant.
     stmt = stmt.on_conflict_do_update(
-        index_elements=[Customer.id],
+        index_elements=[Customer.tenant_id, Customer.id],
         set_={
             col: stmt.excluded[col]
             for col in ("industry", "plan_code", "signup_at", "churned_at", "churn_reason")

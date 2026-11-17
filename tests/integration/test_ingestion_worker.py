@@ -8,7 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.db.models import Chunk, Customer, Job
+from app.db.models import DEFAULT_TENANT_ID, Chunk, Customer, Job
 from app.llm.fake import FakeEmbeddingProvider
 from app.workers.tasks import process_ingestion_job
 from tests.factories import batch, conversation
@@ -171,7 +171,7 @@ async def test_customers_are_stored(
         json={"customers": [{"id": "c1", "industry": "telecom", "churned_at": "2026-09-10"}]},
     )
     async with db() as s:
-        customer = await s.get(Customer, "c1")
+        customer = await s.get(Customer, (DEFAULT_TENANT_ID, "c1"))
     assert customer is not None
     assert customer.churned_at is not None
     assert customer.churned_at.isoformat() == "2026-09-10"

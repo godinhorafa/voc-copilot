@@ -22,16 +22,10 @@ from fastapi.responses import StreamingResponse
 from app.agent.orchestrator import Agent, AgentResult
 from app.analytics.text_to_sql import TextToSQL
 from app.answering.rag import RagAnswerer
-from app.api.deps import (
-    AnalyticsEngineDep,
-    EmbeddingsDep,
-    LLMDep,
-    PricesDep,
-    SessionDep,
-    SessionmakerDep,
-    SettingsDep,
-)
+from app.api.auth import PrincipalDep, SessionDep, SessionmakerDep, require_role
+from app.api.deps import AnalyticsEngineDep, EmbeddingsDep, LLMDep, PricesDep, SettingsDep
 from app.core.rate_limit import rate_limit
+from app.db.models import Role
 from app.observability.tracing import current_trace_id
 from app.observability.usage import PriceTable, UsageMeter, metered
 from app.retrieval.rerank import LLMReranker
@@ -43,7 +37,10 @@ from app.schemas.usage import usage_out
 router = APIRouter(
     prefix="/ask",
     tags=["ask"],
-    dependencies=[Depends(rate_limit("ask", lambda s: s.rate_limit_ask))],
+    dependencies=[
+        Depends(require_role(Role.ANALYST)),
+        Depends(rate_limit("ask", lambda s: s.rate_limit_ask)),
+    ],
 )
 logger = structlog.get_logger(__name__)
 
@@ -106,6 +103,7 @@ async def ask(
     analytics: AnalyticsEngineDep,
     settings: SettingsDep,
     prices: PricesDep,
+    principal: PrincipalDep,
     stream: bool = Query(default=False, description="Stream progress as server-sent events"),
 ) -> Any:
     """Answer a question from customer conversations and metrics, with citations."""
@@ -155,6 +153,7 @@ async def ask(
             max_rows=settings.sql_max_rows,
             timeout_ms=settings.sql_timeout_ms,
             set_role=set_role,
+            tenant_id=principal.tenant_id,
         ),
         k=body.k,
         max_steps=settings.agent_max_steps,

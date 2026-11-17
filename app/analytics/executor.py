@@ -14,8 +14,12 @@ How strong the last part is depends on the connection (ADR 0007):
   statement per call, and the transaction is rolled back right after, so the
   switch never applies to a statement that reads data. The guard also blocks
   `set_config`. A dedicated engine removes the switch altogether.
+
+The views only return the rows of the tenant in `app.tenant_id` (ADR 0012),
+set here for the transaction. Without a tenant they return nothing.
 """
 
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -50,12 +54,17 @@ async def execute(
     max_rows: int = 200,
     timeout_ms: int = 5000,
     set_role: bool = True,
+    tenant_id: uuid.UUID | None = None,
 ) -> QueryResult:
     async with engine.connect() as conn:
         tx = await conn.begin()
         try:
             await conn.execute(text("SET TRANSACTION READ ONLY"))
             await conn.execute(text(f"SET LOCAL statement_timeout = {int(timeout_ms)}"))
+            if tenant_id is not None:
+                await conn.execute(
+                    text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
+                )
             if set_role:
                 await conn.execute(text(f"SET LOCAL ROLE {ROLE}"))
             await conn.execute(text("SET LOCAL search_path = analytics"))

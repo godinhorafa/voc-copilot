@@ -60,7 +60,7 @@ known-first-party = ["app", "evals", "scripts", "synthetic", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106"]
-"migrations/**" = ["N999"]
+"migrations/**" = ["N999", "S608"]  # DDL built from constants, never input
 "{synthetic,evals}/**" = ["S311"]  # seeded, non-cryptographic randomness is the point
 
 [tool.mypy]

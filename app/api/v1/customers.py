@@ -1,10 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api.deps import SessionDep
+from app.api.auth import SessionDep, require_role
+from app.db.models import Role
 from app.ingestion.service import upsert_customers
 from app.schemas.customer import CustomersUpsertRequest, CustomersUpsertResponse
 
-router = APIRouter(prefix="/customers", tags=["customers"])
+router = APIRouter(
+    prefix="/customers", tags=["customers"], dependencies=[Depends(require_role(Role.INGEST))]
+)
 
 
 @router.put("", response_model=CustomersUpsertResponse)

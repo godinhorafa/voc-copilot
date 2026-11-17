@@ -1,21 +1,34 @@
+"""API key primitives.
+
+Keys look like `voc_<prefix>_<secret>`. Only the SHA-256 of the whole key is
+stored: the secret part is 32 random bytes, so a slow password hash would add
+latency to every request without adding security (ADR 0012).
+"""
+
+import hashlib
 import secrets
+import uuid
+from dataclasses import dataclass
 
-from fastapi import HTTPException, Security, status
-from fastapi.security import APIKeyHeader
+from app.db.models import Role
 
-from app.api.deps import SettingsDep
-
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+KEY_PREFIX = "voc"
 
 
-async def require_api_key(
-    settings: SettingsDep, api_key: str | None = Security(api_key_header)
-) -> None:
-    expected = settings.api_key.get_secret_value().encode()
-    # Constant-time comparison so response timing doesn't leak the key.
-    if api_key is None or not secrets.compare_digest(api_key.encode(), expected):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
-            headers={"WWW-Authenticate": "APIKey"},
-        )
+@dataclass(frozen=True)
+class Principal:
+    """The caller: which tenant's data it may touch, and what it may do."""
+
+    tenant_id: uuid.UUID
+    role: Role
+    key_id: uuid.UUID | None  # None for the bootstrap key
+
+
+def hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def generate_key() -> tuple[str, str]:
+    """A new key and its public prefix."""
+    prefix = secrets.token_hex(4)
+    return f"{KEY_PREFIX}_{prefix}_{secrets.token_urlsafe(32)}", prefix

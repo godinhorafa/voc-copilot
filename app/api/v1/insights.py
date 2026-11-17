@@ -7,10 +7,11 @@ conversations whose extraction has run, so a backlog doesn't dilute them.
 from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
-from app.api.deps import SessionDep
+from app.api.auth import SessionDep, require_role
+from app.db.models import Role
 from app.schemas.insights import (
     CompetitorRow,
     InsightsResponse,
@@ -19,7 +20,9 @@ from app.schemas.insights import (
     ReasonRow,
 )
 
-router = APIRouter(prefix="/insights", tags=["insights"])
+router = APIRouter(
+    prefix="/insights", tags=["insights"], dependencies=[Depends(require_role(Role.ANALYST))]
+)
 
 # Shared WHERE clause; every query binds :industry, :start and :end (NULL = no filter).
 # Queries mark where it goes with __SCOPE__; values are always bound, never interpolated.

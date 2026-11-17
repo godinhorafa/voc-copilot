@@ -24,6 +24,7 @@ from app.analytics.catalog import ROLE, SCHEMA, VIEWS
 from app.analytics.executor import execute
 from app.analytics.sql_guard import GuardedQuery, check
 from app.analytics.text_to_sql import MetricsFilters, TextToSQL, TextToSQLError
+from app.db.models import DEFAULT_TENANT_ID
 from app.llm.fake import FakeLLMProvider
 from tests.factories import conversation
 from tests.helpers import ingest_payloads
@@ -36,13 +37,6 @@ LOGIN_PASSWORD = "test-only-password"
 
 def raw(sql: str) -> GuardedQuery:
     return GuardedQuery(sql=sql, tables=frozenset())
-
-
-@pytest.fixture
-async def engine(migrated_db: str) -> AsyncIterator[AsyncEngine]:
-    eng = create_async_engine(migrated_db)
-    yield eng
-    await eng.dispose()
 
 
 @pytest.fixture
@@ -165,7 +159,7 @@ async def test_text_to_sql_runs_guarded_query(
     llm = FakeLLMProvider(
         [_sql("SELECT channel, count(*) AS n FROM conversations GROUP BY channel ORDER BY channel")]
     )
-    answer = await TextToSQL(llm, engine).answer(
+    answer = await TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID).answer(
         "Conversations by channel?", MetricsFilters(industry="telecom")
     )
     assert answer.result.columns == ["channel", "n"]
@@ -188,7 +182,9 @@ async def test_text_to_sql_repairs_after_guard_and_db_errors(
             _sql("SELECT count(*) AS n FROM conversations"),
         ]
     )
-    answer = await TextToSQL(llm, engine, max_attempts=3).answer("How many?")
+    answer = await TextToSQL(llm, engine, max_attempts=3, tenant_id=DEFAULT_TENANT_ID).answer(
+        "How many?"
+    )
     assert answer.result.rows == [[3]]
     assert answer.attempts == 3
     assert "rejected by the SQL guard" in answer.errors[0]
@@ -199,7 +195,7 @@ async def test_text_to_sql_repairs_after_guard_and_db_errors(
 async def test_text_to_sql_gives_up(engine: AsyncEngine) -> None:
     llm = FakeLLMProvider([_sql("DELETE FROM conversations")] * 2)
     with pytest.raises(TextToSQLError) as exc:
-        await TextToSQL(llm, engine).answer("Delete everything")
+        await TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID).answer("Delete everything")
     assert len(exc.value.errors) == 2
 
 

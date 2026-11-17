@@ -22,8 +22,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
-from app.db.models import Conversation
-from app.db.session import create_engine, create_sessionmaker
+from app.db.models import DEFAULT_TENANT_ID, Conversation
+from app.db.session import create_engine, tenant_sessionmaker
 from app.llm.base import EmbeddingProvider
 from app.llm.factory import build_embedding_provider, build_llm_provider
 from app.retrieval.rerank import LLMReranker
@@ -166,7 +166,7 @@ def write_reports(result: RetrievalResult, out: Path) -> Path:
 async def _run(golden: Path, k: int, out: Path, strategy: Strategy, rerank: bool) -> int:
     settings = get_settings()
     engine = create_engine(settings)
-    sessionmaker = create_sessionmaker(engine)
+    sessionmaker = tenant_sessionmaker(engine, DEFAULT_TENANT_ID)
     try:
         missing = await check_ingested(sessionmaker, load_golden(golden))
         if missing:

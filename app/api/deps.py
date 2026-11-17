@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -36,14 +35,13 @@ def get_redis(request: Request) -> Redis:
     return redis
 
 
-def get_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
+def get_system_sessionmaker(request: Request) -> async_sessionmaker[AsyncSession]:
+    """Not scoped to a tenant: for tenants and API keys only (see app/db/session.py).
+
+    Endpoints use the tenant-scoped SessionDep / SessionmakerDep from app.api.auth.
+    """
     sessionmaker: async_sessionmaker[AsyncSession] = request.app.state.sessionmaker
     return sessionmaker
-
-
-async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
-    async with request.app.state.sessionmaker() as session:
-        yield session
 
 
 def get_llm(request: Request) -> LLMProvider:
@@ -66,8 +64,9 @@ PricesDep = Annotated[PriceTable, Depends(get_prices)]
 EngineDep = Annotated[AsyncEngine, Depends(get_engine)]
 AnalyticsEngineDep = Annotated[tuple[AsyncEngine, bool], Depends(get_analytics_engine)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
-SessionmakerDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sessionmaker)]
+SystemSessionmakerDep = Annotated[
+    async_sessionmaker[AsyncSession], Depends(get_system_sessionmaker)
+]
 LLMDep = Annotated[LLMProvider, Depends(get_llm)]
 EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embeddings)]
 

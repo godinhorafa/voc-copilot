@@ -5,6 +5,7 @@ runs it with database-level limits. A guard rejection or a database error goes
 back to the model as feedback for another attempt.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -73,6 +74,7 @@ class TextToSQL:
         llm: LLMProvider,
         engine: AsyncEngine,
         *,
+        tenant_id: uuid.UUID,
         max_rows: int = 200,
         timeout_ms: int = 5000,
         max_attempts: int = 2,
@@ -81,6 +83,7 @@ class TextToSQL:
         self._llm = llm
         self._engine = engine
         self._set_role = set_role
+        self._tenant_id = tenant_id
         self._max_rows = max_rows
         self._timeout_ms = timeout_ms
         self._max_attempts = max_attempts
@@ -108,6 +111,7 @@ class TextToSQL:
                     max_rows=self._max_rows,
                     timeout_ms=self._timeout_ms,
                     set_role=self._set_role,
+                    tenant_id=self._tenant_id,
                 )
             except SQLGuardError as exc:
                 error = f"rejected by the SQL guard: {exc}"

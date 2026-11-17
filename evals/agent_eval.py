@@ -27,7 +27,8 @@ from pydantic import BaseModel
 from app.agent.orchestrator import Agent, AgentResult
 from app.analytics.text_to_sql import TextToSQL
 from app.core.config import get_settings
-from app.db.session import create_engine, create_sessionmaker
+from app.db.models import DEFAULT_TENANT_ID
+from app.db.session import create_engine, tenant_sessionmaker
 from app.llm.base import LLMProvider, Message, Usage
 from app.llm.factory import build_embedding_provider, build_llm_provider
 from app.retrieval.retriever import Retriever
@@ -219,11 +220,11 @@ async def _run(golden: Path, out: Path, use_judge: bool) -> int:
         judge_llm = build_llm_provider(judge_settings)
     agent = Agent(
         llm,
-        sessionmaker=create_sessionmaker(engine),
+        sessionmaker=tenant_sessionmaker(engine, DEFAULT_TENANT_ID),
         retriever=Retriever(
             build_embedding_provider(settings), strategy=settings.retrieval_strategy
         ),
-        text_to_sql=TextToSQL(llm, engine),
+        text_to_sql=TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID),
         max_steps=settings.agent_max_steps,
     )
     try:
