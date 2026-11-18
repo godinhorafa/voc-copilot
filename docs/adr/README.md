@@ -16,5 +16,6 @@ Each ADR captures one decision that had a real alternative: the context, what we
 | 0010 | [Web UI with a same-origin API proxy](0010-web-ui.md) | Accepted |
 | 0011 | [PII redaction at ingestion and per-client rate limits](0011-pii-redaction-and-rate-limiting.md) | Accepted |
 | 0012 | [Tenants, per-tenant API keys and row-level security](0012-tenants-api-keys-and-row-level-security.md) | Accepted |
+| 0013 | [User sign-in with OpenID Connect at the proxy](0013-user-sign-in-with-oidc.md) | Accepted |
 
 Template: [`template.md`](template.md).
