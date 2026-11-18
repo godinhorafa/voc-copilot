@@ -16,6 +16,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY app ./app
 COPY migrations ./migrations
+# Operator CLI (python -m scripts.tenants) for creating tenants, keys and users.
+COPY scripts/__init__.py scripts/tenants.py ./scripts/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
