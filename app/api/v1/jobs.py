@@ -1,12 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import SessionDep
-from app.db.models import Job
+from app.api.auth import SessionDep, require_role
+from app.db.models import Job, Role
 from app.schemas.job import JobOut
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(require_role(Role.INGEST))])
 
 
 @router.get("/{job_id}", response_model=JobOut)

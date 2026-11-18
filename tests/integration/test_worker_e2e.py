@@ -10,6 +10,7 @@ from httpx import AsyncClient
 from redis.asyncio import ConnectionPool
 
 from app.core.config import Settings
+from app.db.models import DEFAULT_TENANT_ID
 from app.workers.queue import ArqJobQueue
 from app.workers.tasks import process_ingestion_job
 from tests.factories import batch, conversation
@@ -25,9 +26,9 @@ async def test_upload_is_processed_by_arq_worker(
 
     response = await client.post("/v1/conversations", json=batch(conversation("a")))
     job_id = response.json()["job_id"]
-    await ArqJobQueue(redis).enqueue_ingestion(uuid.UUID(job_id))
+    await ArqJobQueue(redis).enqueue_ingestion(uuid.UUID(job_id), DEFAULT_TENANT_ID)
     # Enqueueing the same job twice is deduplicated by arq.
-    await ArqJobQueue(redis).enqueue_ingestion(uuid.UUID(job_id))
+    await ArqJobQueue(redis).enqueue_ingestion(uuid.UUID(job_id), DEFAULT_TENANT_ID)
 
     async def on_startup(ctx: dict[str, Any]) -> None:
         ctx.update({k: v for k, v in worker_ctx.items() if k != "job_try"})

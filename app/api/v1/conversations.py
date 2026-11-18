@@ -4,9 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import QueueDep, RedactorDep, SessionDep
+from app.api.auth import PrincipalDep, SessionDep, require_role
+from app.api.deps import QueueDep, RedactorDep
 from app.core.rate_limit import rate_limit
-from app.db.models import Chunk, Conversation
+from app.db.models import Chunk, Conversation, Role
 from app.ingestion.service import ingest_conversations
 from app.schemas.conversation import (
     ConversationOut,
@@ -23,7 +24,10 @@ logger = structlog.get_logger(__name__)
 
 @router.post(
     "",
-    dependencies=[Depends(rate_limit("ingest", lambda s: s.rate_limit_ingest))],
+    dependencies=[
+        Depends(require_role(Role.INGEST)),
+        Depends(rate_limit("ingest", lambda s: s.rate_limit_ingest)),
+    ],
     response_model=IngestResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={200: {"model": IngestResponse, "description": "Nothing needed processing"}},
@@ -33,6 +37,7 @@ async def upload_conversations(
     session: SessionDep,
     queue: QueueDep,
     redactor: RedactorDep,
+    principal: PrincipalDep,
     response: Response,
 ) -> IngestResponse:
     """Upload conversations. Idempotent by `external_id`; processing is asynchronous."""
@@ -48,7 +53,7 @@ async def upload_conversations(
         response.status_code = status.HTTP_200_OK
     else:
         try:
-            await queue.enqueue_ingestion(result.job_id)
+            await queue.enqueue_ingestion(result.job_id, principal.tenant_id)
         except Exception as exc:
             # Data is committed; re-uploading the same batch queues it again.
             logger.error("enqueue_failed", job_id=str(result.job_id), error=repr(exc))
@@ -66,7 +71,11 @@ async def upload_conversations(
     )
 
 
-@router.get("/{external_id}", response_model=ConversationOut)
+@router.get(
+    "/{external_id}",
+    response_model=ConversationOut,
+    dependencies=[Depends(require_role(Role.ANALYST))],
+)
 async def get_conversation(external_id: str, session: SessionDep) -> ConversationOut:
     conv = await session.scalar(
         select(Conversation)

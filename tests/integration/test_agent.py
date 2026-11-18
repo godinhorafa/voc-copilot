@@ -1,5 +1,5 @@
 import json
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
 
 from app.agent.orchestrator import Agent
 from app.analytics.text_to_sql import TextToSQL
+from app.db.models import DEFAULT_TENANT_ID
 from app.llm.base import ToolTurn
 from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider, tool_turn
 from app.retrieval.retriever import Retriever
@@ -51,13 +51,6 @@ def final(
     )
 
 
-@pytest.fixture
-async def engine(migrated_db: str) -> AsyncIterator[AsyncEngine]:
-    eng = create_async_engine(migrated_db)
-    yield eng
-    await eng.dispose()
-
-
 def make_agent(
     llm: FakeLLMProvider, db: async_sessionmaker[AsyncSession], engine: AsyncEngine, **kw: Any
 ) -> Agent:
@@ -65,7 +58,7 @@ def make_agent(
         llm,
         sessionmaker=db,
         retriever=Retriever(FakeEmbeddingProvider(), strategy="hybrid"),
-        text_to_sql=TextToSQL(llm, engine),
+        text_to_sql=TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID),
         **kw,
     )
 

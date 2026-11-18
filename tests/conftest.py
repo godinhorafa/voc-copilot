@@ -18,10 +18,16 @@ from alembic.config import Config
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.core.config import Settings
-from app.db.session import create_sessionmaker
+from app.db.models import DEFAULT_TENANT_ID
+from app.db.session import tenant_sessionmaker
 from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider
 from app.main import create_app
 
@@ -84,13 +90,23 @@ async def migrated_db(postgres_url: str) -> str:
 
 
 @pytest.fixture
-async def db(migrated_db: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    """Sessionmaker on the test database; tables are emptied after each test."""
-    engine = create_async_engine(migrated_db)
-    yield create_sessionmaker(engine)
-    async with engine.begin() as conn:
-        await conn.execute(text("TRUNCATE customers, conversations, jobs CASCADE"))
-    await engine.dispose()
+async def engine(migrated_db: str) -> AsyncIterator[AsyncEngine]:
+    """Engine on the test database; all data is removed after each test."""
+    eng = create_async_engine(migrated_db)
+    yield eng
+    async with eng.begin() as conn:
+        # TRUNCATE is not subject to row-level security: it empties every tenant.
+        await conn.execute(text("TRUNCATE customers, conversations, jobs, api_keys CASCADE"))
+        await conn.execute(
+            text("DELETE FROM tenants WHERE id <> :default"), {"default": DEFAULT_TENANT_ID}
+        )
+    await eng.dispose()
+
+
+@pytest.fixture
+def db(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """Sessions scoped to the default tenant, the one the test API key belongs to."""
+    return tenant_sessionmaker(engine, DEFAULT_TENANT_ID)
 
 
 @pytest.fixture
@@ -101,9 +117,11 @@ def settings(migrated_db: str, redis_url: str) -> Settings:
 class FakeQueue:
     def __init__(self) -> None:
         self.enqueued: list[uuid.UUID] = []
+        self.tenants: list[uuid.UUID] = []
 
-    async def enqueue_ingestion(self, job_id: uuid.UUID) -> None:
+    async def enqueue_ingestion(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
         self.enqueued.append(job_id)
+        self.tenants.append(tenant_id)
 
 
 @pytest.fixture
@@ -133,11 +151,13 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture
-def worker_ctx(settings: Settings, db: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+def worker_ctx(
+    settings: Settings, engine: AsyncEngine, db: async_sessionmaker[AsyncSession]
+) -> dict[str, Any]:
     """The context arq passes to tasks, built from test fixtures."""
     return {
         "settings": settings,
-        "sessionmaker": db,
+        "engine": engine,
         "embeddings": FakeEmbeddingProvider(dim=settings.embedding_dim),
         "llm": FakeLLMProvider.permissive(),
         "job_try": 1,

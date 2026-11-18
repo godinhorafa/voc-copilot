@@ -41,7 +41,8 @@ from sqlalchemy.ext.asyncio import (
 from app.agent.orchestrator import Agent
 from app.analytics.text_to_sql import TextToSQL
 from app.core.config import get_settings
-from app.db.session import create_sessionmaker
+from app.db.models import DEFAULT_TENANT_ID
+from app.db.session import tenant_sessionmaker
 from app.llm.base import LLMProvider
 from app.llm.factory import build_llm_provider
 from app.llm.fake import FakeEmbeddingProvider
@@ -213,7 +214,7 @@ async def run_llm_evals(
             llm,
             sessionmaker=sessionmaker,
             retriever=Retriever(FakeEmbeddingProvider(), strategy="hybrid"),
-            text_to_sql=TextToSQL(llm, engine),
+            text_to_sql=TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID),
         )
         result = await agent_eval.evaluate(
             agent_eval.load_questions(AGENT_GOLDEN),
@@ -239,7 +240,7 @@ async def run_llm_evals(
 async def run(database_url: str, *, mode: Mode) -> Suite:
     await _migrate(database_url)
     engine = create_async_engine(database_url)
-    sessionmaker = create_sessionmaker(engine)
+    sessionmaker = tenant_sessionmaker(engine, DEFAULT_TENANT_ID)
     suite = Suite()
     real = build_llm_provider(get_settings()) if mode == "record" else None
     try:

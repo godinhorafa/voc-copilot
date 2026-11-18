@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.agent.orchestrator import Agent
 from app.agent.tools import TOOLS
 from app.analytics.text_to_sql import TextToSQL
+from app.db.models import DEFAULT_TENANT_ID
 from app.llm.base import Message, ToolSpec, ToolTurn
 from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider, tool_turn
 from app.retrieval.retriever import Retriever
@@ -70,7 +71,7 @@ async def test_agent_eval_scores_routing_citations_and_faithfulness(
         llm,
         sessionmaker=db,
         retriever=Retriever(FakeEmbeddingProvider(), strategy="hybrid"),
-        text_to_sql=TextToSQL(llm, engine),
+        text_to_sql=TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID),
         max_final_attempts=1,
     )
     questions = [
@@ -110,7 +111,7 @@ async def test_agent_errors_are_counted_not_raised(
         llm,
         sessionmaker=db,
         retriever=Retriever(FakeEmbeddingProvider()),
-        text_to_sql=TextToSQL(llm, engine),
+        text_to_sql=TextToSQL(llm, engine, tenant_id=DEFAULT_TENANT_ID),
     )
     try:
         result = await evaluate(

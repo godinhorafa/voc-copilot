@@ -28,8 +28,8 @@ dev: ## Run the API locally with hot reload (needs postgres + redis: `docker com
 web: ## Run the web UI with hot reload at http://localhost:5173 (needs the API on :8000)
 	cd web && npm install && npm run dev
 
-demo: ## Load the demo dataset with ground-truth insights (no LLM needed), then open http://localhost:3000
-	$(UV) python -m scripts.demo_seed
+demo: ## Load the demo dataset with ground-truth insights (no LLM needed), then open http://localhost:3000; ARGS="--tenant acme"
+	$(UV) python -m scripts.demo_seed $(ARGS)
 
 worker: ## Run the ingestion worker locally
 	$(UV) arq app.workers.settings.WorkerSettings

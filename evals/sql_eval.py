@@ -30,6 +30,7 @@ from app.analytics.executor import execute
 from app.analytics.sql_guard import check
 from app.analytics.text_to_sql import MetricsFilters, TextToSQL, TextToSQLError
 from app.core.config import get_settings
+from app.db.models import DEFAULT_TENANT_ID
 from app.db.session import create_engine
 from app.llm.base import LLMProvider, Usage
 from app.llm.factory import build_llm_provider
@@ -130,11 +131,13 @@ async def evaluate(
     golden: str,
     max_rows: int = 1000,
 ) -> SQLEvalResult:
-    text_to_sql = TextToSQL(llm, engine, max_rows=max_rows)
+    text_to_sql = TextToSQL(llm, engine, max_rows=max_rows, tenant_id=DEFAULT_TENANT_ID)
     outcomes: list[QuestionOutcome] = []
     usage = Usage()
     for q in questions:
-        reference = await execute(engine, check(q.sql, max_rows=max_rows), max_rows=max_rows)
+        reference = await execute(
+            engine, check(q.sql, max_rows=max_rows), max_rows=max_rows, tenant_id=DEFAULT_TENANT_ID
+        )
         try:
             answer = await text_to_sql.answer(q.question, MetricsFilters(industry=q.industry))
         except TextToSQLError as exc:

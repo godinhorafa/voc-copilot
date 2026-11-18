@@ -92,7 +92,7 @@ async def test_changed_content_replaces_turns(
 async def test_enqueue_failure_returns_503_and_keeps_data(
     client: AsyncClient, queue: FakeQueue, db: async_sessionmaker[AsyncSession]
 ) -> None:
-    async def broken(job_id: uuid.UUID) -> None:
+    async def broken(job_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
         raise ConnectionError("redis down")
 
     queue.enqueue_ingestion = broken  # type: ignore[method-assign]

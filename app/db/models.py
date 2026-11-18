@@ -13,9 +13,12 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    PrimaryKeyConstraint,
     String,
     Text,
+    UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -32,17 +35,75 @@ NAMING_CONVENTION = {
 # Fixed by the schema: changing the embedding model's dimension needs a migration.
 EMBEDDING_DIM = 1536
 
+# Created by migration 0006; existing data and the bootstrap API_KEY belong to it.
+DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+def tenant_column() -> Mapped[uuid.UUID]:
+    """Owning tenant of a row, filled from the transaction's tenant (ADR 0012).
+
+    The default reads `app.tenant_id`, set by tenant-scoped sessions; with no
+    tenant set it raises instead of guessing. Row-level security policies on
+    every table with this column only expose and accept the current tenant's rows.
+    """
+    return mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        server_default=text("current_setting('app.tenant_id')::uuid"),
+        index=True,
+    )
+
+
+class Tenant(Base):
+    """An isolated organization: its data is invisible to every other tenant."""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Role(enum.StrEnum):
+    ADMIN = "admin"  # everything, including managing the tenant's API keys
+    ANALYST = "analyst"  # ask, metrics, insights, read conversations
+    INGEST = "ingest"  # upload conversations and customers, read jobs
+
+
+class ApiKey(Base):
+    """Only a hash is stored; the key itself is shown once, when it is created."""
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(128))
+    role: Mapped[Role] = mapped_column(
+        Enum(Role, name="api_key_role", values_callable=lambda e: [m.value for m in e])
+    )
+    # Public part of the key, to recognize it in listings and logs.
+    prefix: Mapped[str] = mapped_column(String(16))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Customer(Base):
     """Customer records come from the CRM / billing system, not from transcripts."""
 
     __tablename__ = "customers"
+    # CRM ids are only unique within a tenant.
+    __table_args__ = (PrimaryKeyConstraint("tenant_id", "id"),)
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
+    id: Mapped[str] = mapped_column(String(64))
     industry: Mapped[str] = mapped_column(String(32))
     plan_code: Mapped[str | None] = mapped_column(String(64))
     signup_at: Mapped[date | None] = mapped_column(Date)
@@ -55,10 +116,14 @@ class Customer(Base):
 
 class Conversation(Base):
     __tablename__ = "conversations"
-    __table_args__ = (Index("ix_conversations_industry_started_at", "industry", "started_at"),)
+    __table_args__ = (
+        Index("ix_conversations_industry_started_at", "industry", "started_at"),
+        UniqueConstraint("tenant_id", "external_id", name="uq_conversations_tenant_external_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    external_id: Mapped[str] = mapped_column(String(128), unique=True)
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
+    external_id: Mapped[str] = mapped_column(String(128))
     # No FK: transcripts and CRM data arrive independently and in any order.
     customer_id: Mapped[str | None] = mapped_column(String(64), index=True)
     industry: Mapped[str] = mapped_column(String(32))
@@ -101,6 +166,7 @@ class Turn(Base):
         ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True
     )
     idx: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
     speaker: Mapped[str] = mapped_column(String(16))
     text: Mapped[str] = mapped_column(Text)
     offset_s: Mapped[int | None] = mapped_column(Integer)
@@ -124,6 +190,7 @@ class Chunk(Base):
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("conversations.id", ondelete="CASCADE"), index=True
     )
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
     turn_start: Mapped[int] = mapped_column(Integer)
     turn_end: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
@@ -145,6 +212,7 @@ class Insight(Base):
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True
     )
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
     contact_reason: Mapped[str] = mapped_column(String(64))
     sentiment: Mapped[str] = mapped_column(String(16))
     resolved: Mapped[bool] = mapped_column(Boolean)
@@ -173,6 +241,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = tenant_column()
     status: Mapped[JobStatus] = mapped_column(
         Enum(JobStatus, name="job_status", values_callable=lambda e: [m.value for m in e]),
         default=JobStatus.QUEUED,
