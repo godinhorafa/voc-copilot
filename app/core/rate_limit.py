@@ -77,12 +77,15 @@ class RateLimiter:
 
 
 def client_identity(request: Request, settings: Settings) -> str:
-    api_key = request.headers.get("x-api-key", "")
+    # The bearer token or API key, whichever the request carries. A signed-in user's
+    # token changes when it is refreshed, which starts a new window: fine for a
+    # limit that protects spend, and it needs no lookup before authentication.
+    credential = request.headers.get("authorization") or request.headers.get("x-api-key", "")
     ip = request.client.host if request.client else "unknown"
     if settings.rate_limit_trust_forwarded_for:
         forwarded = request.headers.get("x-forwarded-for", "")
         ip = forwarded.split(",")[0].strip() or ip
-    return hashlib.sha256(f"{api_key}|{ip}".encode()).hexdigest()[:24]
+    return hashlib.sha256(f"{credential}|{ip}".encode()).hexdigest()[:24]
 
 
 def rate_limit(

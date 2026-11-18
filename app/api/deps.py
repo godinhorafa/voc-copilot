@@ -5,6 +5,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
+from app.core.oidc import OIDCVerifier
 from app.llm.base import EmbeddingProvider, LLMProvider
 from app.observability.usage import DEFAULT_PRICES, PriceTable, load_prices
 from app.privacy.redaction import Redactor
@@ -74,6 +75,14 @@ EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embeddings)]
 def get_redactor(request: Request) -> Redactor | None:
     redactor: Redactor | None = request.app.state.redactor
     return redactor
+
+
+def get_oidc(request: Request) -> OIDCVerifier | None:
+    oidc: OIDCVerifier | None = request.app.state.oidc
+    return oidc
+
+
+OIDCDep = Annotated[OIDCVerifier | None, Depends(get_oidc)]
 
 
 def get_queue(request: Request) -> JobQueue:

@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router'
 
 import { AppSidebar } from '@/components/app-sidebar'
 import { ConversationSheetProvider } from '@/components/conversation-sheet'
+import { RequireExplore, SessionGate, SessionProvider } from '@/components/session'
 import { SiteHeader } from '@/components/site-header'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AskPage } from '@/features/ask/ask-page'
@@ -16,6 +17,16 @@ const InsightsPage = lazy(() =>
 
 export default function App() {
   return (
+    <SessionProvider>
+      <SessionGate>
+        <Shell />
+      </SessionGate>
+    </SessionProvider>
+  )
+}
+
+function Shell() {
+  return (
     <FiltersProvider>
       <ConversationSheetProvider>
         <SidebarProvider>
@@ -24,16 +35,32 @@ export default function App() {
             <SiteHeader />
             <main className="flex-1">
               <Routes>
-                <Route path="/" element={<AskPage />} />
+                <Route
+                  path="/"
+                  element={
+                    <RequireExplore>
+                      <AskPage />
+                    </RequireExplore>
+                  }
+                />
                 <Route
                   path="/insights"
                   element={
-                    <Suspense fallback={<Skeleton className="m-6 h-96" />}>
-                      <InsightsPage />
-                    </Suspense>
+                    <RequireExplore>
+                      <Suspense fallback={<Skeleton className="m-6 h-96" />}>
+                        <InsightsPage />
+                      </Suspense>
+                    </RequireExplore>
                   }
                 />
-                <Route path="*" element={<AskPage />} />
+                <Route
+                  path="*"
+                  element={
+                    <RequireExplore>
+                      <AskPage />
+                    </RequireExplore>
+                  }
+                />
               </Routes>
             </main>
           </SidebarInset>

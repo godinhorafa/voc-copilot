@@ -1,0 +1,44 @@
+# Local OpenID provider for trying single sign-on (docker-compose.sso.yml).
+# NOT for production: in-memory storage, static users, a shared password.
+# In production, point oauth2-proxy and the API at your real provider
+# (Microsoft Entra ID, Google, Okta, Keycloak...) instead.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: voc-copilot
+    name: VOC Copilot
+    secret: local-dev-client-secret
+    redirectURIs:
+      - http://localhost:3000/oauth2/callback
+
+enablePasswordDB: true
+
+# Every user's password is "password". Access is decided by VOC Copilot, not
+# here: make demo-sso adds the first three to the default tenant; the last one
+# can sign in but has no access, to show that screen.
+staticPasswords:
+  - email: admin@example.com
+    username: admin
+    userID: 9f1c2a52-3c1e-4c55-9d68-1a0c6c2c7a01
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  - email: analyst@example.com
+    username: analyst
+    userID: 9f1c2a52-3c1e-4c55-9d68-1a0c6c2c7a02
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  - email: ingest@example.com
+    username: ingest
+    userID: 9f1c2a52-3c1e-4c55-9d68-1a0c6c2c7a03
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  - email: stranger@example.com
+    username: stranger
+    userID: 9f1c2a52-3c1e-4c55-9d68-1a0c6c2c7a04
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"

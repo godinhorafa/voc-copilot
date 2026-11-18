@@ -139,9 +139,14 @@ Verified end to end: Jaeger received request and worker traces with nested agent
 - Worker jobs carry their tenant; evals and the demo seed run in the default tenant
 - Isolation tests on every table, the API, the worker and text-to-SQL; role matrix; ADR 0012
 
-### 10b-2 – Users
+### 10b-2 – User sign-in (OIDC) ✅
 
-- Per-user sign-in to the web UI (OIDC at the proxy), mapped to a tenant and a role
+- oauth2-proxy in front of the web UI (authorization code + PKCE) forwards the ID token; the API verifies it against the provider's JWKS (issuer, audience, expiry, asymmetric algorithms only, key rotation) in `app/core/oidc.py`
+- `users` (email → tenant + role, migration `0007`); `/v1/users` for admins, `add-user` / `users` / `remove-user` in the CLI; `/v1/me`
+- A bearer token is the only credential considered when present: no fallback to a proxy's API key
+- UI: account menu (email, tenant, role, sign out), role-aware pages, no-access and session-expired screens
+- `docker-compose.sso.yml` with a local Dex provider (`make up-sso`, `make demo-sso`); verified end to end against Dex
+- ADR 0013
 
 ### 10c – Deploy
 

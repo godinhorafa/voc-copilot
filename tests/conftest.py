@@ -96,7 +96,7 @@ async def engine(migrated_db: str) -> AsyncIterator[AsyncEngine]:
     yield eng
     async with eng.begin() as conn:
         # TRUNCATE is not subject to row-level security: it empties every tenant.
-        await conn.execute(text("TRUNCATE customers, conversations, jobs, api_keys CASCADE"))
+        await conn.execute(text("TRUNCATE customers, conversations, jobs, api_keys, users CASCADE"))
         await conn.execute(
             text("DELETE FROM tenants WHERE id <> :default"), {"default": DEFAULT_TENANT_ID}
         )

@@ -12,6 +12,7 @@ from app.api.v1 import health
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.core.oidc import OIDCVerifier
 from app.db.models import EMBEDDING_DIM
 from app.db.session import create_engine, create_sessionmaker
 from app.llm.factory import build_embedding_provider, build_llm_provider
@@ -51,11 +52,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.llm = build_llm_provider(settings)
         app.state.embeddings = build_embedding_provider(settings)
         app.state.redactor = Redactor() if settings.pii_redaction else None
+        oidc = (
+            OIDCVerifier(
+                settings.oidc_issuer,
+                settings.oidc_audience or "",
+                jwks_url=settings.oidc_jwks_url,
+                email_claim=settings.oidc_email_claim,
+            )
+            if settings.oidc_issuer
+            else None
+        )
+        app.state.oidc = oidc
         logger.info("startup", environment=settings.environment, llm=settings.llm_provider)
         try:
             yield
         finally:
             await redis.aclose()
+            if oidc is not None:
+                await oidc.aclose()
             if analytics_engine is not None:
                 await analytics_engine.dispose()
             await engine.dispose()

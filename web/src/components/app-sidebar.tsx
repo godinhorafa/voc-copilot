@@ -14,6 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { AccountMenu } from '@/components/session'
 import { NAV } from '@/lib/nav'
 
 export function AppSidebar() {
@@ -57,9 +58,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <p className="px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-          Synthetic demo data
-        </p>
+        <AccountMenu />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
