@@ -148,6 +148,9 @@ Verified end to end: Jaeger received request and worker traces with nested agent
 - `docker-compose.sso.yml` with a local Dex provider (`make up-sso`, `make demo-sso`); verified end to end against Dex
 - ADR 0013
 
-### 10c – Deploy
+### 10c – Deploy ✅
 
-- Deploy guide for Azure Container Apps
+- `deploy/azure/main.bicep`: Container Apps environment (api, worker, web, oauth2-proxy, migration job), PostgreSQL Flexible Server 16 with pgvector, Azure Managed Redis, Log Analytics; SSO or API-key mode; secrets as secure parameters read from environment variables
+- `release.yml` publishes the API and web images to GHCR on version tags; CI lints and compiles the Bicep
+- Fixes found on the way: nginx no longer forwards the browser's `Host` (Container Apps routes by it); the API image ships the tenants CLI
+- `docs/deploy/azure-container-apps.md`: step-by-step deploy with Entra ID, migrate-then-roll updates, hardening checklist, troubleshooting; ADR 0014

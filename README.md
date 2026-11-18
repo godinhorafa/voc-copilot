@@ -425,6 +425,12 @@ Example response from `/v1/ask` (abridged):
 
 ---
 
+## Deploy
+
+[`docs/deploy/azure-container-apps.md`](docs/deploy/azure-container-apps.md) deploys the whole stack to Azure with one Bicep template ([`deploy/azure/main.bicep`](deploy/azure/main.bicep)): Container Apps for the API, worker, UI and oauth2-proxy (sign-in with Microsoft Entra ID), PostgreSQL Flexible Server with pgvector, and Azure Managed Redis. Images are published to GHCR by [`release.yml`](.github/workflows/release.yml) on version tags. The guide covers updates (migrate, then roll), a hardening checklist and troubleshooting ([ADR 0014](docs/adr/0014-azure-container-apps.md)).
+
+---
+
 ## Evaluation
 
 Evals run on every pull request (`.github/workflows/evals.yml`) and post a sticky comment with each metric, its baseline and the delta. A drop beyond 0.01 from `evals/baselines.json` fails the check. Retrieval runs live on the offline embeddings. LLM-based evals replay responses recorded in `evals/cache/`, so CI needs no API key: until responses are recorded they show as *skipped*, and a stale cache (changed prompt) fails. See [ADR 0009](docs/adr/0009-evals-in-ci.md).
@@ -492,7 +498,7 @@ Full reasoning in [`docs/adr/`](docs/adr/). Phase-by-phase plan in [`docs/roadma
 - [x] Multi-tenant support: row-level security, per-tenant API keys with roles
 - [x] Per-user sign-in (OIDC via oauth2-proxy) with roles in the web UI
 - [x] React UI with shadcn/ui: chat with streamed progress and clickable citations, insights dashboard
-- [ ] Deploy guide (Azure Container Apps)
+- [x] Deploy to Azure Container Apps (Bicep, GHCR images, step-by-step guide)
 
 ---
 
