@@ -71,3 +71,16 @@ jobs:
           push: false
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+
+  bicep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The Azure CLI on GitHub runners ships Bicep; lint fails on errors, build on bad params.
+      - run: az bicep install
+      - run: az bicep lint --file deploy/azure/main.bicep
+      - run: az bicep build --file deploy/azure/main.bicep --stdout > /dev/null
+      - run: az bicep build-params --file deploy/azure/main.bicepparam --stdout > /dev/null
+        env:
+          VOC_API_KEY: ci-placeholder-not-a-secret-0123456789
+          VOC_POSTGRES_PASSWORD: ci-placeholder-0123456789
