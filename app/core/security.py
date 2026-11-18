@@ -21,7 +21,13 @@ class Principal:
 
     tenant_id: uuid.UUID
     role: Role
-    key_id: uuid.UUID | None  # None for the bootstrap key
+    key_id: uuid.UUID | None = None  # API keys; None for the bootstrap key
+    user_id: uuid.UUID | None = None  # people signed in through OIDC
+    email: str | None = None
+
+    @property
+    def method(self) -> str:
+        return "oidc" if self.user_id else "api_key"
 
 
 def hash_key(key: str) -> str:

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 UV := uv run
 
-.PHONY: help install up up-observability down logs dev web demo worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent evals evals-record evals-baseline test test-unit lint format typecheck check
+.PHONY: help install up up-observability up-sso demo-sso down logs dev web demo worker migrate revision generate dataset seed eval-extraction golden eval-retrieval seed-dataset eval-sql eval-agent evals evals-record evals-baseline test test-unit lint format typecheck check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -16,8 +16,19 @@ up: ## Start the full stack (runs migrations first)
 up-observability: ## Start the stack plus Jaeger (set OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 in .env); UI at :16686
 	docker compose --profile observability up -d --build
 
-down: ## Stop the stack
-	docker compose --profile observability down
+SSO := docker compose -f docker-compose.yml -f docker-compose.sso.yml
+
+up-sso: ## Start the stack with single sign-on (oauth2-proxy + local Dex) at http://localhost:3000
+	$(SSO) up -d --build
+
+demo-sso: ## Demo data plus the local Dex users (admin/analyst/ingest@example.com, password "password")
+	$(MAKE) demo
+	for user in admin analyst ingest; do \
+		$(UV) python -m scripts.tenants add-user default $$user@example.com --role $$user || true; \
+	done
+
+down: ## Stop the stack (also the SSO services)
+	$(SSO) --profile observability down
 
 logs: ## Tail API and worker logs
 	docker compose logs -f api worker

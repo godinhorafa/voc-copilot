@@ -1,4 +1,4 @@
-"""Tenants and their API keys, for the admin API and `scripts/tenants.py`.
+"""Tenants, their API keys and users, for the admin API and `scripts/tenants.py`.
 
 These tables are not tenant data (no row-level security), so callers use a
 system session and every query here filters on the tenant explicitly.
@@ -8,11 +8,12 @@ import re
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import generate_key, hash_key
-from app.db.models import ApiKey, Role, Tenant
+from app.db.models import ApiKey, Role, Tenant, User
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
@@ -72,3 +73,59 @@ async def revoke_key(session: AsyncSession, tenant_id: uuid.UUID, key_id: uuid.U
     )
     await session.commit()
     return revoked is not None
+
+
+class EmailTakenError(Exception):
+    """The email already has access (each person belongs to one tenant)."""
+
+
+def normalize_email(email: str) -> str:
+    email = email.strip().lower()
+    if "@" not in email or len(email) > 320:
+        raise ValueError("not an email address")
+    return email
+
+
+async def get_tenant_by_id(session: AsyncSession, tenant_id: uuid.UUID) -> Tenant | None:
+    return await session.get(Tenant, tenant_id)
+
+
+async def add_user(session: AsyncSession, tenant_id: uuid.UUID, email: str, role: Role) -> User:
+    user = User(tenant_id=tenant_id, email=normalize_email(email), role=role)
+    session.add(user)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise EmailTakenError(user.email) from exc
+    await session.refresh(user)
+    return user
+
+
+async def list_users(session: AsyncSession, tenant_id: uuid.UUID) -> list[User]:
+    return list(
+        await session.scalars(select(User).where(User.tenant_id == tenant_id).order_by(User.email))
+    )
+
+
+async def get_user(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
+    return await session.scalar(select(User).where(User.id == user_id, User.tenant_id == tenant_id))
+
+
+async def set_user_role(
+    session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, role: Role
+) -> User | None:
+    user = await get_user(session, tenant_id, user_id)
+    if user is not None:
+        user.role = role
+        await session.commit()
+    return user
+
+
+async def remove_user(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Remove a user of this tenant; their next request is refused."""
+    removed = await session.scalar(
+        delete(User).where(User.id == user_id, User.tenant_id == tenant_id).returning(User.id)
+    )
+    await session.commit()
+    return removed is not None

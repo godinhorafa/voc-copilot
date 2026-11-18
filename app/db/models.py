@@ -75,6 +75,10 @@ class Role(enum.StrEnum):
     INGEST = "ingest"  # upload conversations and customers, read jobs
 
 
+# One Postgres type for the roles of API keys and users.
+ROLE_TYPE = Enum(Role, name="member_role", values_callable=lambda e: [m.value for m in e])
+
+
 class ApiKey(Base):
     """Only a hash is stored; the key itself is shown once, when it is created."""
 
@@ -85,14 +89,30 @@ class ApiKey(Base):
         ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(128))
-    role: Mapped[Role] = mapped_column(
-        Enum(Role, name="api_key_role", values_callable=lambda e: [m.value for m in e])
-    )
+    role: Mapped[Role] = mapped_column(ROLE_TYPE)
     # Public part of the key, to recognize it in listings and logs.
     prefix: Mapped[str] = mapped_column(String(16))
     key_hash: Mapped[str] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class User(Base):
+    """A person who signs in through the identity provider (ADR 0013).
+
+    Matched on the verified email claim of their ID token. An email belongs to
+    one tenant; removing the row revokes access at the next request.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    email: Mapped[str] = mapped_column(String(320), unique=True)  # lowercased
+    role: Mapped[Role] = mapped_column(ROLE_TYPE)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Customer(Base):

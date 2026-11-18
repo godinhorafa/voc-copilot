@@ -1,0 +1,64 @@
+# Single sign-on for the web UI (ADR 0013). Run with `make up-sso`:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sso.yml up -d --build
+#
+# Browser -> oauth2-proxy (:3000, signs people in with OIDC) -> web nginx -> API.
+# oauth2-proxy forwards each request with `Authorization: Bearer <ID token>`;
+# the API verifies the token and maps its email to a user of a tenant. The web
+# container no longer adds the shared API key and is not published, so the
+# only way in is through sign-in.
+#
+# Dex is a local stand-in identity provider (deploy/sso/dex.yaml). Its issuer
+# URL must be the same for the browser and the containers, so it is
+# `localhost:5556`, and server-side calls use the `dex` hostname explicitly.
+
+services:
+  dex:
+    image: dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes: ["./deploy/sso/dex.yaml:/etc/dex/config.yaml:ro"]
+    ports: ["5556:5556"]
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
+    ports: ["3000:4180"]
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_UPSTREAMS: http://web:8080
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://localhost:5556/dex
+      # Discovery would fetch localhost:5556 from inside this container.
+      OAUTH2_PROXY_SKIP_OIDC_DISCOVERY: "true"
+      OAUTH2_PROXY_LOGIN_URL: http://localhost:5556/dex/auth
+      OAUTH2_PROXY_REDEEM_URL: http://dex:5556/dex/token
+      OAUTH2_PROXY_OIDC_JWKS_URL: http://dex:5556/dex/keys
+      OAUTH2_PROXY_CLIENT_ID: voc-copilot
+      OAUTH2_PROXY_CLIENT_SECRET: local-dev-client-secret
+      OAUTH2_PROXY_REDIRECT_URL: http://localhost:3000/oauth2/callback
+      OAUTH2_PROXY_SCOPE: openid email profile offline_access
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      # Who may use the app is decided by the API's user list, not by domain here.
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      # Send the ID token upstream as `Authorization: Bearer`.
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      # Refresh the ID token in the session cookie before it expires.
+      OAUTH2_PROXY_COOKIE_REFRESH: 5m
+      # Local only: plain HTTP, and a fixed secret. Generate one per deployment:
+      # python -c "import secrets; print(secrets.token_urlsafe(32)[:32])"
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_COOKIE_SECRET: local-dev-cookie-secret-32-bytes
+    depends_on:
+      dex: { condition: service_started }
+      web: { condition: service_started }
+
+  web:
+    ports: !reset []
+    environment:
+      API_KEY: ""  # every API call carries the signed-in user's token instead
+
+  api:
+    environment:
+      OIDC_ISSUER: http://localhost:5556/dex
+      OIDC_AUDIENCE: voc-copilot
+      OIDC_JWKS_URL: http://dex:5556/dex/keys

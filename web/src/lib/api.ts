@@ -1,9 +1,13 @@
 import { readSSE } from '@/lib/sse'
-import type { AskEvent, AskRequest, Conversation, InsightsResponse } from '@/lib/types'
+import type { AskEvent, AskRequest, Conversation, InsightsResponse, Me } from '@/lib/types'
 
-// Same-origin: the dev server (vite.config.ts) or nginx proxies /api to FastAPI
-// and adds the API key, so it never ships to the browser.
+// Same-origin: the dev server (vite.config.ts) or nginx proxies /api to FastAPI.
+// It adds either the API key or, behind oauth2-proxy, the signed-in user's ID
+// token; neither is visible to this code.
 const BASE = '/api/v1'
+
+/** oauth2-proxy's sign-out endpoint; only exists when sign-in is enabled. */
+export const SIGN_OUT_URL = '/oauth2/sign_out?rd=%2F'
 
 export class ApiError extends Error {
   status: number
@@ -37,6 +41,10 @@ export function getInsights(
     Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])),
   )
   return request<InsightsResponse>(`/insights?${query}`, { signal })
+}
+
+export function getMe(signal?: AbortSignal) {
+  return request<Me>('/me', { signal })
 }
 
 export function getConversation(externalId: string, signal?: AbortSignal) {

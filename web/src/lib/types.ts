@@ -123,3 +123,13 @@ export interface InsightsResponse {
   }[]
   competitors: { competitor: string; mentions: number }[]
 }
+
+export type Role = 'admin' | 'analyst' | 'ingest'
+
+/** GET /v1/me: who is using the UI (a signed-in person, or the proxy's API key). */
+export interface Me {
+  auth: 'oidc' | 'api_key'
+  role: Role
+  email: string | null
+  tenant: { id: string; slug: string; name: string }
+}

@@ -5,9 +5,13 @@
     uv run python -m scripts.tenants create-key acme --role admin --name "acme admin"
     uv run python -m scripts.tenants keys acme
     uv run python -m scripts.tenants revoke-key acme <key-id>
+    uv run python -m scripts.tenants add-user acme ana@acme.com --role admin
+    uv run python -m scripts.tenants users acme
+    uv run python -m scripts.tenants remove-user acme ana@acme.com
 
 A new key is printed once, on stdout; only its hash is stored. Tenant admins
-can then create and revoke their own keys through /v1/api-keys.
+can then create and revoke their own keys through /v1/api-keys, and give
+people access through /v1/users (they sign in via OIDC, ADR 0013).
 """
 
 import argparse
@@ -22,7 +26,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.config import get_settings
 from app.db.models import Role, Tenant
 from app.db.session import create_sessionmaker
-from app.tenancy import create_key, create_tenant, get_tenant, list_keys, list_tenants, revoke_key
+from app.tenancy import (
+    EmailTakenError,
+    add_user,
+    create_key,
+    create_tenant,
+    get_tenant,
+    list_keys,
+    list_tenants,
+    list_users,
+    normalize_email,
+    remove_user,
+    revoke_key,
+)
 
 
 class CommandError(Exception):
@@ -72,6 +88,32 @@ async def cmd_revoke_key(session: AsyncSession, args: argparse.Namespace) -> Non
     print(f"revoked {args.key_id}", file=sys.stderr)
 
 
+async def cmd_add_user(session: AsyncSession, args: argparse.Namespace) -> None:
+    tenant = await _tenant(session, args.slug)
+    try:
+        user = await add_user(session, tenant.id, args.email, Role(args.role))
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+    except EmailTakenError as exc:
+        raise CommandError(f"{args.email} already has access") from exc
+    print(user.id)
+
+
+async def cmd_users(session: AsyncSession, args: argparse.Namespace) -> None:
+    tenant = await _tenant(session, args.slug)
+    for user in await list_users(session, tenant.id):
+        print(f"{user.id}  {user.role.value:<8} {user.email}")
+
+
+async def cmd_remove_user(session: AsyncSession, args: argparse.Namespace) -> None:
+    tenant = await _tenant(session, args.slug)
+    email = normalize_email(args.email)
+    match = [u for u in await list_users(session, tenant.id) if u.email == email]
+    if not match or not await remove_user(session, tenant.id, match[0].id):
+        raise CommandError(f"{email} is not a user of {args.slug!r}")
+    print(f"removed {email}", file=sys.stderr)
+
+
 Command = Callable[[AsyncSession, argparse.Namespace], Awaitable[None]]
 
 
@@ -101,6 +143,21 @@ def parser() -> argparse.ArgumentParser:
     revoke.add_argument("slug")
     revoke.add_argument("key_id", type=uuid.UUID)
     revoke.set_defaults(func=cmd_revoke_key)
+
+    add = sub.add_parser("add-user", help="let an email sign in to a tenant")
+    add.add_argument("slug")
+    add.add_argument("email")
+    add.add_argument("--role", choices=[r.value for r in Role], required=True)
+    add.set_defaults(func=cmd_add_user)
+
+    users = sub.add_parser("users", help="list a tenant's users")
+    users.add_argument("slug")
+    users.set_defaults(func=cmd_users)
+
+    remove = sub.add_parser("remove-user", help="remove a user's access")
+    remove.add_argument("slug")
+    remove.add_argument("email")
+    remove.set_defaults(func=cmd_remove_user)
     return p
 
 

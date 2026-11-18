@@ -23,6 +23,18 @@ class Settings(BaseSettings):
 
     api_key: SecretStr = SecretStr("change-me")
 
+    # User sign-in (ADR 0013). When set, requests may carry `Authorization: Bearer
+    # <ID token>` from this issuer (added by oauth2-proxy in front of the web UI);
+    # the token's email must belong to a user added to a tenant.
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None  # the client id the tokens are issued to
+    # Defaults to the issuer's discovery document. Set it when the issuer URL is not
+    # reachable from the API (e.g. `localhost` in Docker Compose).
+    oidc_jwks_url: str | None = None
+    # The claim holding the user's email. Microsoft Entra ID only sends `email` when it
+    # is configured as an optional claim; `preferred_username` is the usual fallback.
+    oidc_email_claim: str = "email"
+
     llm_provider: LLMProviderName = "fake"
     llm_model: str = "gpt-4o-mini"
     llm_timeout_s: float = Field(default=60.0, gt=0)
@@ -81,6 +93,12 @@ class Settings(BaseSettings):
     azure_openai_api_key: SecretStr | None = None
     azure_openai_api_version: str | None = None
     ollama_base_url: str = "http://localhost:11434"
+
+    @model_validator(mode="after")
+    def _check_oidc(self) -> Self:
+        if self.oidc_issuer and not self.oidc_audience:
+            raise ValueError("OIDC_AUDIENCE is required when OIDC_ISSUER is set")
+        return self
 
     @model_validator(mode="after")
     def _check_rate_limits(self) -> Self:
