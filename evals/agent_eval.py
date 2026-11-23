@@ -32,6 +32,7 @@ from app.db.session import create_engine, tenant_sessionmaker
 from app.llm.base import LLMProvider, Message, Usage
 from app.llm.factory import build_embedding_provider, build_llm_provider
 from app.retrieval.retriever import Retriever
+from evals.cache import ProviderUnavailableError
 
 JUDGE_PROMPT = Path(__file__).parent / "prompts" / "judge_faithfulness.md"
 
@@ -122,6 +123,8 @@ async def evaluate(
     for q in questions:
         try:
             result = await agent.run(q.question)
+        except ProviderUnavailableError:
+            raise  # every other question would fail the same way
         except Exception as exc:  # one failing question shouldn't stop the eval
             reports.append(QuestionReport(q.id, [], False, False, 0, 0, 0, None, None, repr(exc)))
             continue

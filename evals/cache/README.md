@@ -8,6 +8,10 @@ Record with a real provider (costs a few cents with `gpt-4o-mini`):
 LLM_PROVIDER=openai OPENAI_API_KEY=... make evals-record
 ```
 
+On Windows PowerShell, set the variables with `$env:LLM_PROVIDER = "openai"` and `$env:OPENAI_API_KEY = "..."`, then run `uv run python -m evals.ci --database-url <url> --record`.
+
+Recording reuses responses already stored, so a run that was interrupted resumes without paying for the same calls twice. If the provider refuses a request in a way retrying won't fix (no credits, invalid key, no access to the model, provider unreachable), the run stops at the first refusal and prints the reason in one line.
+
 Then review the new numbers, run `make evals-baseline` if they should become the new baseline, and commit both `evals/cache/` and `evals/baselines.json`.
 
-`manifest.json` records which model each eval was recorded with.
+`manifest.json` records which model each eval was recorded with. An eval is added to it only once its recording finishes, so CI never replays a partial one.

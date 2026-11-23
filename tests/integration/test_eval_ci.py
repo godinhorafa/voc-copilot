@@ -1,7 +1,10 @@
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
+import httpx2
+import openai
 import pytest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -9,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.llm.base import Message
 from app.llm.fake import FakeLLMProvider
 from evals import ci, sql_eval
-from evals.cache import CachedLLM, Mode
+from evals.cache import CachedLLM, Mode, ProviderUnavailableError
 from evals.sql_eval import load_questions
+from tests.conftest import make_settings
 from tests.helpers import DATASET, ingest_payloads
 
 pytestmark = pytest.mark.integration
@@ -71,3 +75,53 @@ async def test_sql_eval_records_then_replays_without_a_model(
     # A stale cache fails the eval instead of scoring it.
     assert stale.metrics == {}
     assert "make evals-record" in stale.failed["sql"]
+
+
+class _NoCredits(FakeLLMProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls_made = 0
+
+    async def complete_structured(self, *args: object, **kwargs: object) -> Any:
+        self.calls_made += 1
+        request = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
+        raise openai.RateLimitError(
+            "Error code: 429 - You have no credits remaining.",
+            response=httpx2.Response(429, request=request),
+            body=None,
+        )
+
+
+async def test_recording_stops_at_the_first_refusal(
+    db: async_sessionmaker[AsyncSession],
+    migrated_db: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ci, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(ci, "CACHE_MANIFEST", tmp_path / "cache" / "manifest.json")
+    provider = _NoCredits()
+    engine = create_async_engine(migrated_db)
+    try:
+        with pytest.raises(ProviderUnavailableError, match="no credits remaining"):
+            await ci.run_llm_evals(engine, db, ci.Suite(), "record", provider)
+    finally:
+        await engine.dispose()
+    # Extraction is first: one call, not one per sampled conversation.
+    assert provider.calls_made == 1
+    assert not (tmp_path / "cache" / "manifest.json").exists()
+
+
+def test_main_reports_the_refusal_in_one_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def refused(url: str, *, mode: Mode) -> ci.Suite:
+        raise ProviderUnavailableError("RateLimitError: You have no credits remaining.")
+
+    monkeypatch.setattr(ci, "run", refused)
+    monkeypatch.setattr(ci, "get_settings", lambda: make_settings(llm_provider="ollama"))
+    assert ci.main(["--record", "--database-url", "postgresql+asyncpg://x@y/z"]) == 2
+    err = capsys.readouterr().err
+    assert "Recording stopped" in err
+    assert "no credits remaining" in err
+    assert "Traceback" not in err
