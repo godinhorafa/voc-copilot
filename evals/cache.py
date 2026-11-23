@@ -1,9 +1,16 @@
 """Record and replay LLM and embedding calls, so LLM-based evals can run in CI
 without an API key, at no cost, and deterministically.
 
-    record:  call the real provider, store each response under a request key
+    record:  answer from the store when the request is already there, else
+             call the real provider and store the response under a request key.
+             An interrupted recording therefore resumes without paying twice.
     replay:  answer from the store only; a request that isn't stored raises
              CacheMissError (the eval reports it instead of calling a model)
+
+When recording, a refusal that retrying won't fix (no credits, bad key, no
+access to the model, provider unreachable) raises ProviderUnavailableError,
+which stops the whole run with the provider's reason instead of failing every
+remaining call the same way.
 
 The key is a hash of everything that determines the response: the method, the
 model, the messages (with tool calls), the response schema or tool schemas,
@@ -19,6 +26,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+import openai
 from pydantic import BaseModel
 
 from app.llm.base import (
@@ -37,6 +45,29 @@ Mode = Literal["record", "replay"]
 
 class CacheMissError(LookupError):
     pass
+
+
+class ProviderUnavailableError(RuntimeError):
+    """The real provider refused a call in a way that retrying won't fix."""
+
+
+# Raised by the OpenAI SDK only after its own retries (ADR 0006). Bad requests are
+# not here: they concern one prompt, and the eval counts them per item.
+_FATAL = (
+    openai.AuthenticationError,
+    openai.PermissionDeniedError,
+    openai.NotFoundError,
+    openai.RateLimitError,  # includes "no credits remaining"
+    openai.APIConnectionError,
+)
+
+
+async def _call_provider(call: Any) -> Any:
+    try:
+        return await call()
+    except _FATAL as exc:
+        detail = str(getattr(exc, "message", None) or exc).splitlines()[0][:300]
+        raise ProviderUnavailableError(f"{type(exc).__name__}: {detail}") from exc
 
 
 def request_key(method: str, model: str, payload: dict[str, Any]) -> str:
@@ -62,6 +93,9 @@ class ResponseStore:
 
     def __len__(self) -> int:
         return len(self._entries)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._entries
 
     def get(self, key: str) -> Any:
         if key in self._entries:
@@ -94,9 +128,9 @@ class CachedLLM:
 
     async def _cached(self, method: str, payload: dict[str, Any], call: Any) -> Any:
         key = request_key(method, self._model, payload)
-        if self._mode == "replay":
+        if self._mode == "replay" or key in self._store:
             return self._store.get(key)
-        response = await call()
+        response = await _call_provider(call)
         self._store.put(key, method, response)
         return response
 
@@ -206,10 +240,11 @@ class CachedEmbeddings:
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         key = request_key("embed", self._model, {"texts": list(texts), "dim": self._dim})
-        if self._mode == "replay":
+        if self._mode == "replay" or key in self._store:
             vectors: list[list[float]] = self._store.get(key)
             return vectors
-        assert self._inner is not None
-        vectors = await self._inner.embed(texts)
+        inner = self._inner
+        assert inner is not None
+        vectors = await _call_provider(lambda: inner.embed(texts))
         self._store.put(key, "embed", vectors)
         return vectors

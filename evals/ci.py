@@ -48,7 +48,7 @@ from app.llm.factory import build_llm_provider
 from app.llm.fake import FakeEmbeddingProvider
 from app.retrieval.retriever import STRATEGIES, Retriever
 from evals import agent_eval, extraction_eval, retrieval_eval, sql_eval
-from evals.cache import CachedLLM, CacheMissError, Mode, ResponseStore
+from evals.cache import CachedLLM, CacheMissError, Mode, ProviderUnavailableError, ResponseStore
 from evals.ingest import ingest_dataset
 
 ROOT = Path(__file__).parents[1]
@@ -150,9 +150,6 @@ def _llm_for(name: str, mode: Mode, real: LLMProvider | None) -> tuple[CachedLLM
     else:
         settings = get_settings()
         model = f"{settings.llm_provider}:{settings.llm_model}"
-        manifest[name] = {"model": model}
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        CACHE_MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return CachedLLM(ResponseStore(path), model=model, mode=mode, inner=real), model
 
 
@@ -172,7 +169,23 @@ async def _guarded(
         for metric, value in (await body(cached, model)).items():
             suite.metrics[f"{name}.{metric}"] = value
     except CacheMissError as exc:
-        suite.failed[name] = f"{exc}; prompts changed since recording, run `make evals-record`"
+        hint = (
+            "see the errors above"
+            if mode == "record"
+            else "prompts changed since recording, run `make evals-record`"
+        )
+        suite.failed[name] = f"{exc}; {hint}"
+        return
+    if mode == "record":
+        # Only a finished recording is listed, so CI never replays a partial one.
+        _record_manifest(name, model)
+
+
+def _record_manifest(name: str, model: str) -> None:
+    manifest = json.loads(CACHE_MANIFEST.read_text()) if CACHE_MANIFEST.exists() else {}
+    manifest[name] = {"model": model}
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    CACHE_MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
 
 async def run_llm_evals(
@@ -281,7 +294,16 @@ def main(argv: list[str] | None = None) -> int:
         print("--record needs a real LLM_PROVIDER.", file=sys.stderr)
         return 2
     url = args.database_url or str(get_settings().database_url)
-    suite = asyncio.run(run(url, mode="record" if args.record else "replay"))
+    try:
+        suite = asyncio.run(run(url, mode="record" if args.record else "replay"))
+    except ProviderUnavailableError as exc:
+        print(
+            f"Recording stopped: the LLM provider refused the request ({exc}).\n"
+            "Responses recorded so far are kept; run --record again once this is fixed "
+            "and it resumes without repeating them.",
+            file=sys.stderr,
+        )
+        return 2
     ok = finish(
         suite, update_baselines=args.update_baselines, report=args.report, baselines_path=BASELINES
     )

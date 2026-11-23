@@ -1,13 +1,23 @@
 import json
+import re
 from pathlib import Path
+from typing import Any
 
+import httpx2
+import openai
 import pytest
 from pydantic import BaseModel
 
 from app.agent.tools import TOOLS
 from app.llm.base import Message
 from app.llm.fake import FakeEmbeddingProvider, FakeLLMProvider, tool_turn
-from evals.cache import CachedEmbeddings, CachedLLM, CacheMissError, ResponseStore
+from evals.cache import (
+    CachedEmbeddings,
+    CachedLLM,
+    CacheMissError,
+    ProviderUnavailableError,
+    ResponseStore,
+)
 
 MSGS = [Message(role="user", content="hello")]
 
@@ -92,3 +102,74 @@ def test_entries_are_written_once(tmp_path: Path) -> None:
     store.put("k", "complete", {"text": 2})
     lines = (tmp_path / "s.jsonl").read_text().splitlines()
     assert [json.loads(line)["response"] for line in lines] == [{"text": 1}]
+
+
+def _request() -> httpx2.Request:
+    return httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
+
+
+def _status(cls: type[openai.APIStatusError], code: int, message: str) -> openai.APIStatusError:
+    return cls(message, response=httpx2.Response(code, request=_request()), body=None)
+
+
+class Refusing(FakeLLMProvider):
+    """A provider whose every call fails with `error`."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__()
+        self.error = error
+        self.calls_made = 0
+
+    async def complete_structured(self, *args: object, **kwargs: object) -> Any:
+        self.calls_made += 1
+        raise self.error
+
+
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        (
+            _status(openai.RateLimitError, 429, "Error code: 429 - You have no credits remaining."),
+            "RateLimitError: Error code: 429 - You have no credits remaining.",
+        ),
+        (
+            _status(openai.AuthenticationError, 401, "Incorrect API key provided: sk-pro***abcd"),
+            "AuthenticationError: Incorrect API key provided",
+        ),
+        (_status(openai.NotFoundError, 404, "The model `gpt-9` does not exist"), "NotFoundError"),
+        (openai.APIConnectionError(request=_request()), "APIConnectionError: Connection error."),
+    ],
+)
+async def test_refusals_that_retrying_wont_fix_stop_the_recording(
+    tmp_path: Path, error: Exception, reason: str
+) -> None:
+    path = tmp_path / "c.jsonl"
+    recorder = CachedLLM(ResponseStore(path), model="m", mode="record", inner=Refusing(error))
+    with pytest.raises(ProviderUnavailableError, match=re.escape(reason)):
+        await recorder.complete_structured(MSGS, Answer)
+    assert not path.exists()
+
+
+async def test_bad_requests_concern_one_prompt_and_pass_through(tmp_path: Path) -> None:
+    error = _status(openai.BadRequestError, 400, "context length exceeded")
+    recorder = CachedLLM(
+        ResponseStore(tmp_path / "c.jsonl"), model="m", mode="record", inner=Refusing(error)
+    )
+    with pytest.raises(openai.BadRequestError):
+        await recorder.complete_structured(MSGS, Answer)
+
+
+async def test_recording_resumes_without_calling_the_provider_again(tmp_path: Path) -> None:
+    path = tmp_path / "c.jsonl"
+    first = CachedLLM(
+        ResponseStore(path),
+        model="m",
+        mode="record",
+        inner=FakeLLMProvider(structured=lambda schema, messages: schema(label="x")),
+    )
+    await first.complete_structured(MSGS, Answer)
+
+    offline = Refusing(openai.APIConnectionError(request=_request()))
+    resumed = CachedLLM(ResponseStore(path), model="m", mode="record", inner=offline)
+    assert (await resumed.complete_structured(MSGS, Answer)).value == Answer(label="x")
+    assert offline.calls_made == 0

@@ -23,6 +23,7 @@ from app.core.config import get_settings
 from app.ingestion.extraction import Extraction, InsightExtractor, extractor_version
 from app.llm.base import LLMProvider, Usage
 from app.llm.factory import build_llm_provider
+from evals.cache import ProviderUnavailableError
 from evals.metrics import FieldReport, SetScores, classification_report, set_scores
 
 CATEGORICAL = ("contact_reason", "sentiment", "resolved", "churn_risk")
@@ -63,16 +64,30 @@ async def run_extractions(
 ) -> list[Extraction | Exception]:
     extractor = InsightExtractor(llm)
     semaphore = asyncio.Semaphore(concurrency)
+    # Set before the semaphore is released, so no queued extraction calls the provider
+    # again after a refusal (the TaskGroup's cancellation alone can arrive too late).
+    stopped = asyncio.Event()
 
     async def one(conv: dict[str, Any]) -> Extraction | Exception:
         turns = [(t["speaker"], t["text"]) for t in conv["turns"]]
         async with semaphore:
+            if stopped.is_set():
+                return RuntimeError("skipped: the provider refused an earlier request")
             try:
                 return await extractor.extract(conv["industry"], conv["channel"], turns)
+            except ProviderUnavailableError:
+                stopped.set()
+                raise  # every other call would fail the same way
             except Exception as exc:  # counted as an error, not a crash of the whole eval
                 return exc
 
-    return list(await asyncio.gather(*(one(c) for c in conversations)))
+    # A TaskGroup cancels the pending extractions when one stops the run.
+    try:
+        async with asyncio.TaskGroup() as group:
+            tasks = [group.create_task(one(c)) for c in conversations]
+    except* ProviderUnavailableError as errors:
+        raise errors.exceptions[0] from None
+    return [task.result() for task in tasks]
 
 
 def score(
